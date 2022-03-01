@@ -5,7 +5,7 @@ Repository of the HyT (Hybrid Trap) experiment at Group Willitsch, University of
 TODO: add proper description of code structure
 TODO: add description of access system
 
-## Usage for new group members
+# Usage for new group members
 
 TODO: Write usage instructions
 
@@ -13,5 +13,5 @@ TODO: Write usage instructions
 # Usage for members non in the organization
 Hardly reusable code... 
 
-## License
+# License
 Do we need one? Likely not
