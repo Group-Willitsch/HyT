@@ -49,7 +49,7 @@ classdef InputParameters < handle
                 target_velocity             double
                 options.Phase               double = 10    % default phase     
                 options.Verbose             logical = false % default behaviour of verbose
-                options.FortranSeqBool      logical = true % default behaviour for Fortran sequences
+                options.FortranSeqBool      logical = false % default behaviour for Fortran sequences
                 options.AlwaysGenerateMSeq  logical = false % if true, always force new generation of M sequence
             end
             if nargin < 4
@@ -446,6 +446,8 @@ classdef InputParameters < handle
 
             obj.M_synch_position = x_Vx_temp(:, 1); % reshape x and Vx
             obj.M_synch_velocity = x_Vx_temp(:, 2); clearvars x_Vx_temp; % ugly
+            
+%             if abs(obj.M_synch_velocity(end)
 
             t_x_interpl = griddedInterpolant(obj.M_synch_position, obj.M_synch_time); % to obatain the exact field switching time based on the switching position
             if obj.params.FLY_focusing_mode_bool
@@ -637,7 +639,9 @@ classdef InputParameters < handle
             
             % save the .out file for the experiment
             seq_file = fopen(obj.M_sequence_path,'w'); % will fail if folder does not exists
-            fprintf(seq_file, '%s\t%s\n', [ string( round( obj.M_time_vec*1e9) ), obj.M_trigger_pattern]' );
+            fprintf(seq_file,"#vx_i=%.1f m/s\n#vx_f=%.1f m/s\n#phase=%.2f deg\n#\n",obj.params.FLY_target_velocity, obj.M_synch_velocity(end), obj.params.CALC_phase_degrees);
+            fprintf(seq_file, '%s\t%s\n', [ string( round( obj.M_time_vec*1e9)+1010 ), obj.M_trigger_pattern]' );
+            fprintf(seq_file,"#\n#\n#\n");
             fclose(seq_file);
             
             % rename filename to .mat to save Matlab variable
