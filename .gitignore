@@ -1,5 +1,7 @@
 # List of untracked files to ignore
 
+!./Simulations/Instruction_fortran.pdf # example: include Fortran instructions explicitly
+
 # temporary files
 ~*
 *~
@@ -15,7 +17,6 @@
 *.csv
 *.xls
 *.h5 # common data structure file
-!./Simulations/Instruction_fortran.pdf # example: include Fortran instructions explicitly
 
 # exec and compiled code
 *.exe 
