@@ -1,0 +1,6 @@
+# discharge
+4b 1b   80e-6    80e-6    5e-6 
+# incoupling time
+10e 10b   320e-6    380e-6    20e-6 
+# Laser delay  
+10b 4b    3600e-6  3960e-6  20e-6 
