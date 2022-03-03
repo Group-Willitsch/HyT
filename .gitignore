@@ -5,6 +5,7 @@
 *~
 *~*
 *$* # anything with dollar in filename
+*temp* # dangerous
 
 # heavy files that should never be synched with git!
 *.png
