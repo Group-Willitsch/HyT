@@ -1,0 +1,115 @@
+# EPIC Matplotlib Style
+# =====================
+#
+# To make this your default style on OS X, save it as:
+#       ~/.matplotlib/matplotlibrc
+#
+# Styles: BMH and GGPLOT
+# Colors: colorbrewer.org
+
+# Backend
+# -------
+# backend             : TkAgg
+# toolbar             : toolbar2
+
+# Lines
+# -----
+lines.linewidth     : 3
+lines.antialiased   : True
+lines.marker        : .
+lines.markersize    : 9
+
+# Patches
+# -------
+patch.linewidth     : 1.
+patch.facecolor     : 3288BD
+patch.edgecolor     : eeeeee
+patch.antialiased   : True
+
+# Font
+# ----
+font.family         : DejaVu Sans
+font.sans-serif     : DejaVu Sans
+font.size           : 14
+
+# Text
+# ----
+mathtext.fontset    : cm
+
+# Axes
+# ----
+#axes.hold           : True      # whether to clear the axes by default on
+axes.facecolor      : white    # axes background color
+axes.edgecolor      : (0.1, 0.1, 0.1)]    # axes edge color
+axes.linewidth      : 0.5         # edge linewidth
+axes.grid           : True      # display grid or not
+axes.titlesize      : large     # fontsize of the axes title
+axes.labelsize      : large     # fontsize of the x any y labels
+axes.labelcolor     : black
+axes.axisbelow      : True      # grid/ticks below elements
+axes.prop_cycle    : cycler('color', ['9E0142', '3288BD', '66C2A5', '5E4FA2', 'D53E4F', 'D55E00', '009E73', '0072B2'])
+
+# Ticks
+# -----
+xtick.major.size     : 2         # major tick size in points
+#xtick.minor.size    : 0         # minor tick size in points
+#xtick.major.pad     : 6         # distance to major tick label in points
+#xtick.minor.pad     : 6         # distance to the minor tick label in points
+xtick.color         : black    # color of the tick labels
+xtick.direction     : out       # direction: in or out
+
+ytick.major.size    : 1         # major tick size in points
+#ytick.minor.size    : 0         # minor tick size in points
+#ytick.major.pad     : 6         # distance to major tick label in points
+#ytick.minor.pad     : 6         # distance to the minor tick label in points
+ytick.color         : black    # color of the tick labels
+ytick.direction     : out       # direction: in or out
+
+# Legend
+# ------
+legend.fancybox      : True    # if True, use a rounded box for the legend
+legend.numpoints     : 2        # the number of points in the legend line
+#legend.fontsize      : small
+#legend.pad           : 0.0      # deprecated; the fractional whitespace inside the legend border
+#legend.borderpad     : 0.5      # border whitspace in fontsize units
+legend.markerscale   : .5      # the relative size of legend markers vs. original
+# the following dimensions are in axes coords
+#legend.labelsep      : 0.010    # the vertical space between the legend entries
+#legend.handlelen     : 0.05     # the length of the legend lines
+#legend.handletextsep : 0.02     # the space between the legend line and legend text
+#legend.axespad       : 0.02     # the border between the axes and legend edge
+#legend.shadow        : False
+
+# Grid
+# ----
+grid.color          : lightgray
+grid.linestyle      : -
+grid.linewidth      : .2
+
+# Figure
+# ------
+#figure.figsize      : 8, 6      # figure size in inches
+figure.facecolor    : white     # figure facecolor; 0.75 is scalar gray
+figure.edgecolor    : 0.50      # figure edgecolor
+
+#figure.subplot.left    : 0.125  # the left side of the subplots of the figure
+#figure.subplot.right   : 0.9    # the right side of the subplots of the figure
+#figure.subplot.bottom  : 0.1    # the bottom of the subplots of the figure
+#figure.subplot.top     : 0.9    # the top of the subplots of the figure
+#figure.subplot.wspace  : 0.2    # the amount of width reserved for blank space between subplots
+figure.subplot.hspace  : 0.5    # the amount of height reserved for white space between subplots
+
+# Images
+# ------
+#image.aspect : equal            # equal | auto | a number
+#image.interpolation  : bilinear # see help(imshow) for options
+#image.cmap   : jet              # gray | jet etc...
+#image.lut    : 256              # the size of the colormap lookup table
+#image.origin : upper            # lower | upper
+#image.resample  : False
+
+# Saving Figures
+# --------------
+savefig.dpi         : 300       # figure dots per inch
+savefig.format      : pdf       # what extension to use for savefig('foo'), or 'auto'
+savefig.bbox        : tight     # Minimize superfluous space around plot
