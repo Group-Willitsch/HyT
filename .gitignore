@@ -25,13 +25,14 @@
 # system files 
 *.db 
 **/.DS_Store
+*.nb
 
 # matlab
 *.fig 
 *.asv # autosave files
 *.prj # project files
 *.mat # variables files
-
+*/resources/project/* # matlab project stuff
 
 # python
 __pycache__
