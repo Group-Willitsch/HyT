@@ -15,7 +15,7 @@
 *.csv
 *.xls
 *.h5 # common data structure file
-# !./Simulations/Instruction_fortran.pdf # example: include Fortran instructions explicitly
+!./Simulations/Instruction_fortran.pdf # example: include Fortran instructions explicitly
 
 # exec and compiled code
 *.exe 
