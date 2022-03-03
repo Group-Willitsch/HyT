@@ -1,0 +1,55 @@
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	Simion array: Do NOT change
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+151		ni      number of grid points x (along beam axis)
+41		nj      number of grid points y,z (perpendicular to beam axis)
+41		nk
+21		nbegin  Used part of array along beam axis, rest is for fitting
+131		neind
+20000.0 	gu	#gridunits/meter (2*6666.6667)
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        Parameters used for hexapole
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+1.668           mu      dipole moment (Debye)
+10.0             Vhex    Voltage on hexapole (kV)
+1.649           Lambda  Lambda-doublet splitting (GHz)
+0.003           r_hex   inner radius hexapole (m)
+0.58            B       effective value of MK/J(J+1)
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	Physical size set-up
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+1.5e-3		r_s     radius skimmer (m)
+140e-3	LA	Nozzle to skimmer 152.83 130.55 171.233 166.89 170.83 172.43 134.5
+94e-3 	LB	Skimmer to Hexapole or Decelerator 66.6
+no             	Hex     Hexapole installed? (yes/no)
+3.0		LC	Hexapole (not used)
+31.0e-3	        L1	Hexapole (used)
+3.00		L2	Hexapole (not used)
+16.8e-3	        L3	Hexapole to Decelerator
+6.50e-3         L4	last stage decelerator to detection (m)10.5
+123		nt	(Number of electrodes in dec.-1):size!! 
+123		# 	switching times in decelerator
+1               s       overtone number
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	Parameters used in calculation
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+450.0   	vx	velocity synchronous molecule (m/s)646, 510, 490,460
+5        	t_step  Stepsize for integration (ns)
+62.40	phase	phase (degrees) decelerator, 45.0, 59.45
+17      	mass	Mass of molecule in AMU
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	Parameters used in fly
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX 
+100000	       n_mol    Number of molecules to be flown
+550.00         trigBU   trigger time difference dissociation-burst unit 511.47, 530.659 505.2 441.8 427 446
+beam           packet   packet of molecules: 'beam' or 'block'
+1000.0			if block: time offset package (mus) (stage=1!)
+5.0                     if block: position offset package (mm) (stage=1!)
+40.0                    if block: blocksize longitudinal direction (mm)
+4.0                     if block: blocksize transverse direction (mm)
+0.25			if beam: radius nozzle (mm)
+11.5			if beam: width dissociation laser (FWHM) (mm) 12.511.5
+480			Average velocity incoming package (m/s)646
+0.20                    relative velocity spread along beam axis 0.112 0.12
+0.1                velocity spread perp. to beam axis/average velocity 0.10
+
