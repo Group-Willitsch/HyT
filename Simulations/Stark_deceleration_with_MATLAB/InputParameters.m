@@ -106,7 +106,7 @@ classdef InputParameters < handle
             obj.params.BEAM_radius_of_nozzle = 0.25e-3; % radius of the valve nozzle (m)
             obj.params.BEAM_long_pos_spread = 11.5e-3; % longitudinal position spread (m) - along x aixs or beam propagation
             obj.params.BEAM_long_vel_spread = 0.20; % relative velocity spread along beam axis 0.112 0.12
-            obj.params.BEAM_trans_velocity_spread = 0.1; % 	velocity spread perp. to beam axis/average velocity 0.10
+            obj.params.BEAM_trans_velocity_spread = 5; % 	velocity spread perp. to beam axis/average velocity 0.10
 
             % Parameters used in fly and in the simulation
             obj.params.FLY_incoupling_time = 710.2e-6; % valve - decelerator incoupling time (s)
@@ -246,6 +246,16 @@ classdef InputParameters < handle
                 % symmetrize the y, z fields
                  obj.ay_norm = (obj.ay_norm - flip(obj.ay_norm, 2))/2;
                  obj.az_norm = (obj.az_norm - flip(obj.az_norm, 3))/2;
+
+% %            
+% %                  also for focusing mode
+                 obj.ay_pos = (obj.ay_pos + flip(obj.ay_neg, 3))/2;
+                 obj.ay_neg = flip( obj.ay_pos, 3);
+
+                 obj.az_pos = (obj.az_pos - flip(obj.az_neg, 3))/2;
+                 obj.az_neg = - flip(obj.az_pos, 3);
+
+        
                 
                 
             end
@@ -264,9 +274,7 @@ classdef InputParameters < handle
             obj.ax_norm_extended = zeros(num_grids_x, num_grids_y, num_grids_z); %Vertical ones
             obj.ay_norm_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
             obj.az_norm_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-            % below changed ax_norm(21:131,:,:) to ax_norm since already cut 
-            % not sure about flip argument 22:130 --> 1:109 in cut matrix
-            % correct?
+            
             
             obj.ax_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.ax_norm, flip(-obj.ax_norm(1:109,:,:),1)), 61, 1, 1), obj.ax_norm);  % before  obj.ax_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.ax_norm, flip(-obj.ax_norm(22:130,:,:),1)), 61, 1, 1), obj.ax_norm);
             obj.ay_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.ay_norm, flip(obj.ay_norm(1:109,:,:),1)), 61, 1, 1), obj.ay_norm);
@@ -406,7 +414,7 @@ classdef InputParameters < handle
 
             % 111 pops out from?
             %changed ax norm again since not cut anymore
-            obj.ax_norm_1d_interpl = griddedInterpolant( linspace(0, obj.params.PHYS_distance_stages, 111), obj.ax_norm(:,21,21),'linear','none');          
+            obj.ax_norm_1d_interpl = griddedInterpolant( linspace(0, obj.params.PHYS_distance_stages, 111), obj.ax_norm(:,21,21),'linear','none'); %Here we make new a_x values in the center of the trap at the trap and at the stages?electrodes?           
             if obj.params.FLY_focusing_mode_bool
                 obj.ax_neg_1d_interpl = griddedInterpolant(linspace(0,obj.params.PHYS_distance_stages,111), obj.ax_neg(:,21,21),'linear','none');
             end
@@ -424,8 +432,8 @@ classdef InputParameters < handle
             if use_ode_solver_bool
                 opts = odeset('RelTol', 1e-8, 'AbsTol', 1e-8, 'Events', @(t,x) EventsFcn(t,x));
                 [obj.M_synch_time, x_Vx_temp] = ode45( @(t,x) ...
-                    obj.dxdt(t,x), [0, 5e-3], [0; obj.params.CALC_vel_synch_mol], opts); % ode23t seems a good solver
-            else
+                    obj.dxdt(t,x), [0, 5e-3], [0; obj.params.CALC_vel_synch_mol], opts); % ode23t seems a good solver so why ode45 used?
+            else %why dont we always use ode45 solver?
                 xx = [0; obj.params.CALC_vel_synch_mol];
                 t_step = 10e-9;
                 tt= 0:t_step:5e-3;
@@ -433,7 +441,7 @@ classdef InputParameters < handle
                 for i = 1:1:length(tt)
                     if xx(1) < obj.params.PHYS_length_dec + obj.params.PHYS_exit_to_detection
                         x_Vx(i,:) = xx;
-                        xx = xx + obj.dxdt(tt(i), xx)*t_step;
+                        xx = xx + obj.dxdt(tt(i), xx)*t_step; %eulers method to update pos for each time step till pos is at end of decc.
                     else
                         break;
                     end
@@ -449,16 +457,16 @@ classdef InputParameters < handle
             
 %             if abs(obj.M_synch_velocity(end)
 
-            t_x_interpl = griddedInterpolant(obj.M_synch_position, obj.M_synch_time); % to obatain the exact field switching time based on the switching position
+            t_x_interpl = griddedInterpolant(obj.M_synch_position, obj.M_synch_time); % to obatain the exact field switching time based on the switching position (pos synchronus molecule)
             if obj.params.FLY_focusing_mode_bool
-                positions_to_jump = [0, union(obj.params.PHYS_distance_stages/2 + obj.params.CALC_phase_distance: obj.params.PHYS_distance_stages:...
-                    obj.params.PHYS_length_dec-(obj.params.PHYS_distance_stages/2 - obj.params.CALC_phase_distance), obj.params.PHYS_distance_stages*3.0/2.0 -...
+                positions_to_jump = [0, union(obj.params.PHYS_distance_stages/2 + obj.params.CALC_phase_distance: obj.params.PHYS_distance_stages:... %union combines data into array
+                    obj.params.PHYS_length_dec-(obj.params.PHYS_distance_stages/2 - obj.params.CALC_phase_distance), obj.params.PHYS_distance_stages*3.0/2.0 -... 
                     obj.params.CALC_phase_distance: obj.params.PHYS_distance_stages:obj.params.PHYS_length_dec - (obj.params.PHYS_distance_stages/2 + obj.params.CALC_phase_distance)), ...
                     obj.params.PHYS_length_dec + obj.params.PHYS_exit_to_detection]'; % list of positions of interest
-                obj.M_time_vec = t_x_interpl(positions_to_jump);
+                obj.M_time_vec = t_x_interpl(positions_to_jump);  %B = repmat(A,n) returns an array containing n copies of A in the row and column dimensions. The size of B is size(A)*n when A is a matrix.
                 trigger_pattern = repmat(["b0011";"b0100";"b1100";"b0010";"b0011";"b1000";"b1100";"b0001"], obj.params.PHYS_number_of_electrodes,1);
                 obj.M_trigger_pattern = trigger_pattern(1:length(obj.M_time_vec));
-                obj.M_trigger_pattern(end-1:end)= "b0000";
+                obj.M_trigger_pattern(end-1:end)= "b0000"; %what is done here?
             else
                 positions_to_jump = [0, obj.params.PHYS_distance_stages/2 + obj.params.CALC_phase_distance: obj.params.PHYS_distance_stages:...
                     obj.params.PHYS_length_dec-(obj.params.PHYS_distance_stages/2 - ...
@@ -484,51 +492,51 @@ classdef InputParameters < handle
 %             end
 
             if verbose % we plot the synch molecule
-                figure('Name', 'Time seq with Matlab');
-
-                subplot(2, 3, 1)    % x vs t
-                plot(obj.M_synch_time .* 1e3, obj.M_synch_position);
-                title('Position vs time'); ylabel('x (m)'); xlabel('t (ms)')
-
-                % linear trendline, see below
-                linear_velocity = obj.params.CALC_vel_synch_mol - ...
-                        (obj.params.CALC_vel_synch_mol - ...21:131
-                        obj.M_synch_velocity(end)) / ...
-                        obj.M_synch_time(end) .* obj.M_synch_time;
-                % THE FINAL TIME IS OVERESTIMATED, BECAUSE THAT IS THE TIME
-                % AT WHICH IT EXITs
-                % THE DECELERATOR; BUT THE DECELRATION
-                % STOPS EARLIER; TODO TO BE FIXED
-
-                subplot(2, 3, 2) % Vx vs t
-                plot(obj.M_synch_time .* 1e3, obj.M_synch_velocity );            
-                title('Velocity vs time'); ylabel('Vx (m/s)'); xlabel('t (ms)')
-
-                subplot(2, 3, 4) % Vx vs x
-                plot(obj.M_synch_position, obj.M_synch_velocity );            
-                title('Velocity vs space'); ylabel('Vx (m/s)'); xlabel('x (m)')
-
-                subplot(2, 3, 5) % Vx vs t, minus a trendline of linear deceleration
-                % that follows V(t) =  V_0 - (V_0 - V_final) / t_final * t
-                % whre V_0 = starting velocity, V_final t_final velocity
-                % and time of the last instant of the simulation
-                plot(obj.M_synch_time .* 1e3, obj.M_synch_velocity - linear_velocity);
-                title('Vx (m/s) - linear decrease'); ylabel('V (m/s)'); xlabel('t (ms)');
-                
-                % plot the single timesteps, to see how they very in the
-                % variable-timestep ODE solvers of MATLAB. 
-                % get rid of first and few last ones as they screw up the
-                % plotting
-                subplot(2, 3, 3)
-                time_step_difference = circshift(obj.M_synch_time*1e9, 1) - obj.M_synch_time*1e9;
-                time_step_difference = - circshift(obj.M_synch_time, 1) + obj.M_synch_time;
-                time_step_difference = time_step_difference(2:end-7);
-                plot(time_step_difference * 1e6, '--o')
-                xlabel('Index of vector'); ylabel('Intergation timestep (ns)'); title('Time steps of the integration')
-
-                subplot(2, 3, 6)
-                histogram(time_step_difference, 100)
-                xlabel('Intergation timestep (ns)'); title('Histrogram of time steps')
+%                 figure('Name', 'Time seq with Matlab');
+% 
+%                 subplot(2, 3, 1)    % x vs t
+%                 plot(obj.M_synch_time .* 1e3, obj.M_synch_position);
+%                 title('Position vs time'); ylabel('x (m)'); xlabel('t (ms)')
+% 
+%                 % linear trendline, see below
+%                 linear_velocity = obj.params.CALC_vel_synch_mol - ...
+%                         (obj.params.CALC_vel_synch_mol - ...21:131
+%                         obj.M_synch_velocity(end)) / ...
+%                         obj.M_synch_time(end) .* obj.M_synch_time;
+%                 % THE FINAL TIME IS OVERESTIMATED, BECAUSE THAT IS THE TIME
+%                 % AT WHICH IT EXITs
+%                 % THE DECELERATOR; BUT THE DECELRATION
+%                 % STOPS EARLIER; TODO TO BE FIXED
+% 
+%                 subplot(2, 3, 2) % Vx vs t
+%                 plot(obj.M_synch_time .* 1e3, obj.M_synch_velocity );            
+%                 title('Velocity vs time'); ylabel('Vx (m/s)'); xlabel('t (ms)')
+% 
+%                 subplot(2, 3, 4) % Vx vs x
+%                 plot(obj.M_synch_position, obj.M_synch_velocity );            
+%                 title('Velocity vs space'); ylabel('Vx (m/s)'); xlabel('x (m)')
+% 
+%                 subplot(2, 3, 5) % Vx vs t, minus a trendline of linear deceleration
+%                 % that follows V(t) =  V_0 - (V_0 - V_final) / t_final * t
+%                 % whre V_0 = starting velocity, V_final t_final velocity
+%                 % and time of the last instant of the simulation
+%                 plot(obj.M_synch_time .* 1e3, obj.M_synch_velocity - linear_velocity);
+%                 title('Vx (m/s) - linear decrease'); ylabel('V (m/s)'); xlabel('t (ms)');
+%                 
+%                 % plot the single timesteps, to see how they very in the
+%                 % variable-timestep ODE solvers of MATLAB. 
+%                 % get rid of first and few last ones as they screw up the
+%                 % plotting
+%                 subplot(2, 3, 3)
+%                 time_step_difference = circshift(obj.M_synch_time*1e9, 1) - obj.M_synch_time*1e9;
+%                 time_step_difference = - circshift(obj.M_synch_time, 1) + obj.M_synch_time;
+%                 time_step_difference = time_step_difference(2:end-7);
+%                 plot(time_step_difference * 1e6, '--o')
+%                 xlabel('Index of vector'); ylabel('Intergation timestep (ns)'); title('Time steps of the integration')
+% 
+%                 subplot(2, 3, 6)
+%                 histogram(time_step_difference, 100)
+%                 xlabel('Intergation timestep (ns)'); title('Histrogram of time steps')
 
             end
             fprintf('\tFinal Matlab velocity is %d\n', obj.params.FLY_simulated_target_vel)
@@ -797,15 +805,17 @@ classdef InputParameters < handle
 
         end
 
-        %% plotAccelerationFields
+               %% plotAccelerationFields
         % plot the fields
         function plotAccelerationFields(obj)
             fprintf('Plotting acceleration fields ...\t')
 
-            xrange = [obj.params.SIMION_nbegin obj.params.SIMION_nend]; % modify this to modifi x rang of plotting
+            xrange = [obj.params.SIMION_nbegin obj.params.SIMION_nend];
+            xcut=ceil(111/2);
             ycut = ceil(obj.params.SIMION_nj/2); % modify these to change the y,z cut
             zcut = ceil(obj.params.SIMION_nk/2);
-            ycut = 21; zcut=20;
+
+          
             x = (xrange(1):xrange(2))./obj.params.SIMION_grid_units_p_meter.*1e3; % x axis in mm
 
             % plot slice along decelerator
@@ -820,7 +830,7 @@ classdef InputParameters < handle
             xlabel(my_xlabel); ylabel(my_ylabel);
             title('acc along y')
             subplot(3, 1, 3)
-            plot(x, obj.az_norm(:, ycut, zcut), 'DisplayName', 'ax normal'); hold on;
+            plot(x, obj.az_norm(:, ycut, zcut), 'DisplayName', 'az normal'); hold on;
             xlabel(my_xlabel); ylabel(my_ylabel);
             title('acc along z')
             if obj.params.FLY_focusing_mode_bool == true % plot focusing mode too
@@ -829,37 +839,258 @@ classdef InputParameters < handle
                 subplot(3, 1, 2); plot(x, obj.ay_pos(:, ycut, zcut), 'DisplayName', 'ay foc +');
                 plot(x, obj.ay_neg(:, ycut, zcut), 'DisplayName', 'ay foc -'); legend();
                 subplot(3, 1, 3); plot(x, obj.az_pos(:, ycut, zcut), 'DisplayName', 'az foc +');
-                plot(x, abs(obj.az_neg(:, ycut, zcut)), 'DisplayName', 'az foc -'); legend();
+                plot(x, obj.az_neg(:, ycut, zcut), 'DisplayName', 'abs(az foc -)'); legend();
             end % Again here ax etc. was adapted no need to adjust range
 
             % 2D plot
+
+            slice_ax_norm_a_x= permute(obj.ax_norm(xcut, :, :), [3, 2, 1]);
+            slice_ax_norm_a_y= permute(obj.ax_norm(:, ycut, :), [1, 3, 2]);
+            slice_ax_norm_a_z= permute(obj.ax_norm(:, :, zcut), [1, 2, 3]);
+            slice_ay_norm_a_x = permute(obj.ay_norm(xcut, :, :), [3, 2, 1]);
+            slice_ay_norm_a_y = permute(obj.ay_norm(:, ycut, :), [1, 3, 2]);
+            slice_ay_norm_a_z = permute(obj.ay_norm(:,:, zcut), [1, 2, 3]);
+            slice_az_norm_a_x = permute(obj.az_norm(xcut, :, :), [3, 2, 1]);
+            slice_az_norm_a_y = permute(obj.az_norm(:,ycut, :), [1, 3, 2]);
+            slice_az_norm_a_z = permute(obj.az_norm(:, :, zcut), [1, 2, 3]);
+
             figure()
-            subplot(3, 3, 1); imagesc(obj.ax_norm(:, :, zcut))
-            slice_ax_norm_a_y = permute(obj.ax_norm(:, ceil(41), :), [1, 3, 2]); % output is x, z axis
-            slice_ay_norm_a_y = permute(obj.ay_norm(:, ceil(41), :), [1, 3, 2]); % output is x, z axis
-            slice_az_norm_a_y = permute(obj.az_norm(:, ceil(41), :), [1, 3, 2]); % output is x, z axis
-            figure()
-            subplot(3, 1, 1)
-            imagesc(slice_ax_norm_a_y); colorbar;
-            xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc on x (longitudinal)')
-            subplot(3, 1, 2)
-            imagesc(slice_ay_norm_a_y); colorbar;
-            xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc on y (vertical)')
-            subplot(3, 1, 3)
-            imagesc(slice_az_norm_a_y); colorbar;
-            xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc on z (horizonthal)')
+            subplot(3, 3, 1)
+            imagesc(slice_ax_norm_a_x); colorbar; axis xy;
+            xlabel('z (grid units)'); ylabel('y (grid units)'); title('a_x, z-y (longitudinal)')
+            subplot(3, 3, 2)
+            imagesc(slice_ax_norm_a_y); colorbar; axis xy;
+            xlabel('x (grid units)'); ylabel('z (grid units)'); title('a_x, x-z (longitudinal)')
+            subplot(3, 3, 3)
+            imagesc(slice_ax_norm_a_z); colorbar; axis xy;
+            xlabel('x(grid units)'); ylabel('y (grid units)'); title('a_x, x-y (longitudinal)')
+            subplot(3, 3, 4)
+            imagesc(slice_ay_norm_a_x); colorbar; axis xy;
+            xlabel('z (grid units)'); ylabel('y (grid units)'); title('a_y, z-y (longitudinal)')
+            subplot(3, 3, 5)
+            imagesc(slice_ay_norm_a_y); colorbar; axis xy;
+            xlabel('x (grid units)'); ylabel('z (grid units)'); title('a_y, x-z (longitudinal)')
+            subplot(3, 3, 6)
+            imagesc(slice_ay_norm_a_z); colorbar; axis xy;
+            xlabel('x (grid units)'); ylabel('y (grid units)'); title('a_y, x-y (longitudinal)')
+            subplot(3, 3, 7)
+            imagesc(slice_az_norm_a_x); colorbar; axis xy;
+            xlabel('z (grid units)'); ylabel('y (grid units)'); title('a_z, z-y (longitudinal)')
+            subplot(3, 3, 8)
+            imagesc(slice_az_norm_a_y); colorbar; axis xy;
+            xlabel('x (grid units)'); ylabel('z (grid units)'); title('a_z, x-z (longitudinal)')
+            subplot(3, 3, 9)
+            imagesc(slice_az_norm_a_z); colorbar; axis xy;
+            xlabel('x (grid units)'); ylabel('y (grid units)'); title('a_z, x-y (longitudinal)')
+
+
+
+            figure();
+            slice(obj.ax_norm,ycut,xcut,zcut)
+            title('a_x NM'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar;
+
+            figure();
+            slice(obj.ay_norm,ycut,xcut,zcut)
+            title('a_y NM'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar; caxis([min(obj.ay_norm(:)),max(obj.ay_norm(:))]);
+
+
+            figure();
+            slice(obj.az_norm,ycut,xcut,zcut)
+            title('a_z NM'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar; caxis([-70000, 70000])
+
+
+            if obj.params.FLY_focusing_mode_bool == true
+
+                slice_ax_pos_a_x = permute(obj.ax_pos(xcut,:,:), [3, 2, 1]);
+                slice_ax_pos_a_y = permute(obj.ax_pos(:, ycut,:), [3, 1, 2]);
+                slice_ax_pos_a_z = permute(obj.ax_pos(:,:,zcut), [2, 1, 3]);
+                
+                slice_ax_neg_a_x = permute(obj.ax_neg(xcut,:,:), [3, 2, 1]);
+                slice_ax_neg_a_y = permute(obj.ax_neg(:, ycut,:), [3, 1, 2]);
+                slice_ax_neg_a_z = permute(obj.ax_neg(:,:,zcut), [2, 1, 3]);
+
+
+                figure()
+                subplot(2,3,1)
+                imagesc(slice_ax_pos_a_x); colorbar; axis xy;
+                xlabel('z (grid units)'); ylabel('y (grid units)'); title('acc ax_{pos}, z-y');
+
+                subplot(2,3,2)
+                imagesc(slice_ax_pos_a_y); colorbar; axis xy;
+                xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc ax_{pos}, x-z');
+
+                subplot(2,3,3)
+                imagesc(slice_ax_pos_a_z); colorbar; axis xy;
+                xlabel('x (grid units)'); ylabel('y (grid units)'); title('acc ax_{pos}, x-y');
+
+                subplot(2,3,4)
+                imagesc(slice_ax_neg_a_x); colorbar; axis xy;
+                xlabel('z (grid units)'); ylabel('x (grid units)'); title('acc ax_{neg}, z-y');
+
+                subplot(2,3,5)
+                imagesc(slice_ax_neg_a_y); colorbar; axis xy;
+                xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc ax_{neg}, x-z');
+
+                subplot(2,3,6)
+                imagesc(slice_ax_neg_a_z); colorbar; axis xy;
+                xlabel('x (grid units)'); ylabel('y (grid units)'); title('acc ax_{neg}, x-y');
+
+
+                slice_ay_pos_a_x = permute(obj.ay_pos(xcut,:,:), [3, 2, 1]);
+                slice_ay_pos_a_y = permute(obj.ay_pos(:, ycut,:), [3, 1, 2]);
+                slice_ay_pos_a_z = permute(obj.ay_pos(:,:,zcut), [2, 1, 3]);
+                
+                slice_ay_neg_a_x = permute(obj.ay_neg(xcut,:,:), [3, 2, 1]);
+                slice_ay_neg_a_y = permute(obj.ay_neg(:, ycut,:), [3, 1, 2]);
+                slice_ay_neg_a_z = permute(obj.ay_neg(:,:,zcut), [2, 1, 3]);
+
+                figure()
+                subplot(2,3,1)
+                imagesc(slice_ay_pos_a_x()); colorbar; axis xy;
+                xlabel('z (grid units)'); ylabel('y (grid units)'); title('acc ay_{pos}, z-y');
+
+                subplot(2,3,2)
+                imagesc(slice_ay_pos_a_y); colorbar; axis xy; 
+                xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc ay_{pos}, x-z');
+
+                subplot(2,3,3)
+                imagesc(slice_ay_pos_a_z); colorbar; axis xy;
+                xlabel('x (grid units)'); ylabel('y (grid units)'); title('acc ay_{pos}, x-y');
+
+                subplot(2,3,4)
+                imagesc(slice_ay_neg_a_x); colorbar; axis xy;
+                xlabel('z (grid units)'); ylabel('y (grid units)'); title('acc ay_{neg}, z-y');
+
+                subplot(2,3,5)
+                imagesc(slice_ay_neg_a_y); colorbar; axis xy; 
+                xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc ay_{neg}, x-z');
+
+                subplot(2,3,6)
+                imagesc(slice_ay_neg_a_z); colorbar; axis xy;
+                xlabel('x (grid units)'); ylabel('y (grid units)'); title('acc ay_{neg}, x-y');
+
+
+                slice_az_pos_a_x = squeeze(obj.az_pos(xcut,:,:));
+                slice_az_pos_a_y = permute(obj.az_pos(:, ycut,:), [3, 1, 2]);
+                slice_az_pos_a_z = permute(obj.az_pos(:,:,zcut), [2, 1, 3]);
+                
+                slice_az_neg_a_x = permute(obj.az_neg(xcut,:,:), [3, 2, 1]);
+                slice_az_neg_a_y = permute(obj.az_neg(:, ycut,:), [3, 1, 2]);
+                slice_az_neg_a_z = permute(obj.az_neg(:,:,zcut), [2, 1, 3]);
+
+
+                                figure()
+                subplot(2,3,1)
+                imagesc(slice_az_pos_a_x); colorbar; axis xy;
+                xlabel('z (grid units)'); ylabel('x (grid units)'); title('acc az_{pos}, z-y');
+
+                subplot(2,3,2)
+                imagesc(slice_az_pos_a_y); colorbar; axis xy; caxis([0,1.7e5])
+                xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc az_{pos}, x-z');
+
+                subplot(2,3,3)
+                imagesc(slice_az_pos_a_z); colorbar; axis xy;
+                xlabel('x (grid units)'); ylabel('y (grid units)'); title('acc az_{pos}, x-y');
+
+                subplot(2,3,4)
+                imagesc(slice_az_neg_a_x); colorbar; axis xy;
+                xlabel('z (grid units)'); ylabel('y (grid units)'); title('acc az_{neg}, z-y');
+
+                subplot(2,3,5)
+                imagesc(slice_az_neg_a_y); colorbar; axis xy; caxis([-1.7e5,0])
+                xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc az_{neg}, x-z');
+
+                subplot(2,3,6)
+                imagesc(slice_az_neg_a_z); colorbar; axis xy;
+                xlabel('x (grid units)'); ylabel('y (grid units)'); title('acc az_{neg}, x-y');
+
+                
+                
+
+   
+
+%                 slice_ay_pos_a_y = permute(obj.ay_pos(:,ycut,:), [3, 1, 2]); % output is x  z,  axis /plane
+%                 slice_ay_neg_a_y = permute(obj.ay_neg(:,ycut,:), [3, 1, 2]); % output is x z, axis /plane
+% 
+%                 slice_az_pos_a_y = permute(obj.az_pos(:, :,zcut), [2, 1, 3]); % output is x, y plane
+%                 slice_az_neg_a_y = permute(obj.az_neg(:,:,zcut), [2, 1, 3]); % output is x, y plane
+
+%                 figure();
+%                 subplot(2,1,1)
+%                 slice(obj.ax_pos,yslice,xslice,zslice)
+%                 title('a_x pos'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar; caxis([min(obj.ax_pos(:)),max(obj.ax_pos(:))]);
+% 
+%                 subplot(2,1,2)
+%                 slice(obj.ax_neg,yslice,xslice,zslice)
+%                 title('a_x neg'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar;caxis([min(obj.ax_neg(:)),max(obj.ax_neg(:))]);
+% 
+%                 figure();
+%                 subplot(2,1,1)
+%                 slice(obj.ay_pos,yslice,xslice,zslice)
+%                 title('a_y pos'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); caxis([min(obj.ax_neg(:)),max(obj.ax_neg(:))]);;
+% 
+%                 subplot(2,1,2)
+%                 slice(obj.ay_neg,yslice,xslice,zslice)
+%                 title('a_y neg'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); caxis([min(obj.ax_neg(:)),max(obj.ax_neg(:))]);;
+% 
+%                 figure();
+%                 subplot(2,1,1)
+%                 slice(obj.az_pos,yslice,xslice,zslice)
+%                 title('a_z pos'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar;
+% 
+%                 subplot(2,1,2)
+%                 slice(obj.az_neg,yslice,xslice,zslice)
+%                 title('a_z neg'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar;
+                
+                
+                
+                
+%                 figure()
+%                 subplot(3,1,1)
+%                 imagesc(slice_ax_neg_a_y); colorbar;
+%                 xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc ax, x,z plane (neg. on)')
+% 
+%                 subplot(3,1,2)
+%                 imagesc(slice_ax_pos_a_y); colorbar;
+%                 xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc ax x,z plane (pos. on)')
+%                 
+%                 figure()
+%                 subplot(2,1,1)
+%                 imagesc(slice_ay_neg_a_y); colorbar;
+%                 xlabel('z (grid units)'); ylabel('y (grid units)'); title('acc ay x,y plane (neg. on)')
+% 
+%                 subplot(2,1,2)
+%                 imagesc(slice_ay_pos_a_y); colorbar;
+%                 xlabel('z (grid units)'); ylabel('y (grid units)'); title('acc ay x,y plane (pos. on)')
+%                 
+%                 figure()
+%                 subplot(2,1,1)
+%                 imagesc(slice_az_neg_a_y); colorbar;
+%                 xlabel('x (grid units)'); ylabel('y (grid units)'); title('acc az x,z plane (neg. on)')
+% 
+%                 subplot(2,1,2)
+%                 imagesc(slice_az_pos_a_y); colorbar;
+%                 xlabel('x (grid units)'); ylabel('y (grid units)'); title('acc az x,z plane (pos. on)')
+
+
+                
+
+                
+
+            end    
+
 
             clearvars xrange ycut zcut x
             
             % 3 D vector plot
             figure('Name', '3D vector plot')
-            x = 1:111; y = 1:41; z = 1:41; %here x was changed to 111 instead of 151 since our ax.norm is not full size anymore
-            [X, Y, Z] = meshgrid(x, y, z); % but before here onlz point where whole ax_norm etc. was used
+            x = 1:80; y = 1:41; z = 1:41; %here x was changed to 111 instead of 151 since our ax.norm is not full size anymore
+            [X, Y, Z] = meshgrid(x, y, z); % but before here only point where whole ax_norm till 151 etc. was used
             X = permute(X, [2, 1, 3]);
             Y = permute(Y, [2, 1, 3]);
             Z = permute(Z, [2, 1, 3]);
-            q = quiver3(X, Y, Z, obj.ax_norm, obj.ay_norm, obj.az_norm, 'r-', 'AutoScale', 'on', 'AutoScaleFactor', 30);
-            xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc on z (horizonthal)')
+            q = quiver3(X, Y, Z, obj.ax_norm(1:80,:,:), obj.ay_norm(1:80,:,:), obj.az_norm(1:80,:,:),0.6, 'r-', 'ShowArrowHead', 'on');
+            xlabel('x (grid units)'); ylabel('y (grid units)'); zlabel('z (grid units)'); title('Vector plot of accelerations ax,ay,az NM')
 
             %// Compute the magnitude of the vectors
             mags = sqrt(sum(cat(2, q.UData(:), q.VData(:), ...
@@ -889,7 +1120,30 @@ classdef InputParameters < handle
 
             fprintf('done\n')
         end
-
+% 
+%         function plotTimeSequence(obj)
+% 
+%             rods=zeros(obj.M_trigger_pattern,4);
+%             pattern=char(obj.M_trigger_pattern); % ugly code to turn M_pattern into array of doubles such that we can compare the pattern such that we get a string of ones and zeros
+%             pattern=double(string(pattern(:,end-3:end))); % the same length as M_pattern where 1 means the correspondign electrode is on or off at this specific time
+%             el1= double(pattern== 1000 | pattern==1100); % numbering of electrtodes follows b1100 sample where electrode corresponds to the electrode represented by the first number of b1100 etc.
+%             el2= double(pattern== 100 | pattern==1100); % we add numbers to put the on same plot but still be able to see each individual sequence
+%             el3= double(pattern== 10 | pattern==11)+4; % to get meaning numbers b1000=1000, b1100=1100, b0011= 11, b0010=10, b0001=1
+%             el4= double(pattern== 1 | pattern==10)+6;
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+%             
+% 
+%             
+% 
+%             
+%             
+%         end    
 
         
         
