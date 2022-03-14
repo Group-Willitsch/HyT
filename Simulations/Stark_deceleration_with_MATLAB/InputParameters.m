@@ -492,58 +492,69 @@ classdef InputParameters < handle
 %             end
 
             if verbose % we plot the synch molecule
-%                 figure('Name', 'Time seq with Matlab');
-% 
-%                 subplot(2, 3, 1)    % x vs t
-%                 plot(obj.M_synch_time .* 1e3, obj.M_synch_position);
-%                 title('Position vs time'); ylabel('x (m)'); xlabel('t (ms)')
-% 
-%                 % linear trendline, see below
+
+                obj.plotTimeSequence()
+
+                
+                figure('Name', 'Time seq with Matlab');
+
+                subplot(2, 3, 1)    % x vs t
+                plot(obj.M_synch_time .* 1e3, obj.M_synch_position);
+                title('Position vs time'); ylabel('x (m)'); xlabel('t (ms)')
+
+                % linear trendline, see below
 %                 linear_velocity = obj.params.CALC_vel_synch_mol - ...
 %                         (obj.params.CALC_vel_synch_mol - ...21:131
 %                         obj.M_synch_velocity(end)) / ...
 %                         obj.M_synch_time(end) .* obj.M_synch_time;
-%                 % THE FINAL TIME IS OVERESTIMATED, BECAUSE THAT IS THE TIME
-%                 % AT WHICH IT EXITs
-%                 % THE DECELERATOR; BUT THE DECELRATION
-%                 % STOPS EARLIER; TODO TO BE FIXED
-% 
-%                 subplot(2, 3, 2) % Vx vs t
-%                 plot(obj.M_synch_time .* 1e3, obj.M_synch_velocity );            
-%                 title('Velocity vs time'); ylabel('Vx (m/s)'); xlabel('t (ms)')
-% 
-%                 subplot(2, 3, 4) % Vx vs x
-%                 plot(obj.M_synch_position, obj.M_synch_velocity );            
-%                 title('Velocity vs space'); ylabel('Vx (m/s)'); xlabel('x (m)')
-% 
-%                 subplot(2, 3, 5) % Vx vs t, minus a trendline of linear deceleration
-%                 % that follows V(t) =  V_0 - (V_0 - V_final) / t_final * t
-%                 % whre V_0 = starting velocity, V_final t_final velocity
-%                 % and time of the last instant of the simulation
-%                 plot(obj.M_synch_time .* 1e3, obj.M_synch_velocity - linear_velocity);
-%                 title('Vx (m/s) - linear decrease'); ylabel('V (m/s)'); xlabel('t (ms)');
-%                 
-%                 % plot the single timesteps, to see how they very in the
-%                 % variable-timestep ODE solvers of MATLAB. 
-%                 % get rid of first and few last ones as they screw up the
-%                 % plotting
-%                 subplot(2, 3, 3)
-%                 time_step_difference = circshift(obj.M_synch_time*1e9, 1) - obj.M_synch_time*1e9;
-%                 time_step_difference = - circshift(obj.M_synch_time, 1) + obj.M_synch_time;
-%                 time_step_difference = time_step_difference(2:end-7);
-%                 plot(time_step_difference * 1e6, '--o')
-%                 xlabel('Index of vector'); ylabel('Intergation timestep (ns)'); title('Time steps of the integration')
-% 
-%                 subplot(2, 3, 6)
-%                 histogram(time_step_difference, 100)
-%                 xlabel('Intergation timestep (ns)'); title('Histrogram of time steps')
+                % THE FINAL TIME IS OVERESTIMATED, BECAUSE THAT IS THE TIME
+                % AT WHICH IT EXITs
+                % THE DECELERATOR; BUT THE DECELRATION
+                % STOPS EARLIER; TODO TO BE FIXED
+
+                subplot(2, 3, 2) % Vx vs t
+                plot(obj.M_synch_time .* 1e3, obj.M_synch_velocity );            
+                title('Velocity vs time'); ylabel('Vx (m/s)'); xlabel('t (ms)')
+
+                subplot(2, 3, 4) % Vx vs x
+                plot(obj.M_synch_position, obj.M_synch_velocity );            
+                title('Velocity vs space'); ylabel('Vx (m/s)'); xlabel('x (m)')
+
+                subplot(2, 3, 5) % Vx vs t, minus a trendline of linear deceleration
+                ax=diff(obj.M_synch_velocity)./diff(obj.M_synch_time);
+                ax=[0;ax];
+                plot(obj.M_synch_time .*1e3,ax, '-k.', 'LineWidth', 0.5);
+                title('ax (m/s^2) vs t(ms)'); ylabel('ax (m/s62)'); xlabel('t (ms)');
+                % that follows V(t) =  V_0 - (V_0 - V_final) / t_final * t
+                % whre V_0 = starting velocity, V_final t_final velocity
+                % and time of the last instant of the simulation
+%                plot(obj.M_synch_time .* 1e3, obj.M_synch_velocity - linear_velocity);
+%                 title('Vx (m/s) - linear decrease'); ylabel('Vx (m/s)'); xlabel('t (ms)');
+
+
+
+                
+                % plot the single timesteps, to see how they very in the
+                % variable-timestep ODE solvers of MATLAB. 
+                % get rid of first and few last ones as they screw up the
+                % plotting
+                subplot(2, 3, 3)
+                time_step_difference = circshift(obj.M_synch_time*1e9, 1) - obj.M_synch_time*1e9;
+                time_step_difference = - circshift(obj.M_synch_time, 1) + obj.M_synch_time;
+                time_step_difference = time_step_difference(2:end-7);
+                plot(time_step_difference * 1e6, '--o')
+                xlabel('Index of vector'); ylabel('Intergation timestep (ns)'); title('Time steps of the integration')
+
+                subplot(2, 3, 6)
+                histogram(time_step_difference, 300)
+                xlabel('Intergation timestep (ns)'); title('Histrogram of time steps')
 
             end
             fprintf('\tFinal Matlab velocity is %d\n', obj.params.FLY_simulated_target_vel)
             simulated_target_vel = obj.params.FLY_simulated_target_vel; 
-            % I return the compute velocity, to be used if needed.
-            % for some reason I cannot return the class variable but I must
-            % declare a local one. Probably due to handle and class stuff.
+%             I return the compute velocity, to be used if needed.
+%             for some reason I cannot return the class variable but I must
+%             declare a local one. Probably due to handle and class stuff.
         end
         
         function dxdt = dxdt(obj, t, x)
@@ -695,6 +706,13 @@ classdef InputParameters < handle
             clearvars M_time_vec M_trigger_pattern M_stage_number ...
                 M_synch_position M_synch_velocity M_synch_time M_sequence_path % important to delete them            
             fprintf('\t\tdone\n')
+
+            if obj.verbose
+
+                obj.plotTimeSequence()
+            end    
+
+
         end
 
         %% changeFieldConfig
@@ -1120,30 +1138,27 @@ classdef InputParameters < handle
 
             fprintf('done\n')
         end
-% 
-%         function plotTimeSequence(obj)
-% 
-%             rods=zeros(obj.M_trigger_pattern,4);
-%             pattern=char(obj.M_trigger_pattern); % ugly code to turn M_pattern into array of doubles such that we can compare the pattern such that we get a string of ones and zeros
-%             pattern=double(string(pattern(:,end-3:end))); % the same length as M_pattern where 1 means the correspondign electrode is on or off at this specific time
-%             el1= double(pattern== 1000 | pattern==1100); % numbering of electrtodes follows b1100 sample where electrode corresponds to the electrode represented by the first number of b1100 etc.
-%             el2= double(pattern== 100 | pattern==1100); % we add numbers to put the on same plot but still be able to see each individual sequence
-%             el3= double(pattern== 10 | pattern==11)+4; % to get meaning numbers b1000=1000, b1100=1100, b0011= 11, b0010=10, b0001=1
-%             el4= double(pattern== 1 | pattern==10)+6;
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-%             
-% 
-%             
-% 
-%             
-%             
-%         end    
+
+        function plotTimeSequence(obj)
+
+
+            pattern=char(obj.M_trigger_pattern); % ugly code to turn M_pattern into array of doubles such that we can compare the pattern such that we get a string of ones and zeros
+            pattern=double(string(pattern(:,end-3:end))); % the same length as M_pattern where 1 means the correspondign electrode is on or off at this specific time
+            rod1= double(pattern== 1000 | pattern==1100)+1; % numbering of electrtodes follows b1100 sample where electrode corresponds to the electrode represented by the first number of b1100 etc.
+            rod2= double(pattern== 100 | pattern==1100)+3; % we add numbers to put the on same plot but still be able to see each individual sequence
+            rod3= double(pattern== 10 | pattern==11)+5; % to get meaning of the numbers b1000=1000, b1100=1100, b0011= 11, b0010=10, b0001=1
+            rod4= double(pattern== 1 | pattern==11)+7;
+
+            figure()
+            hold on
+            stairs(obj.M_time_vec*10^3,rod1)
+            ylim([0,9]); xlabel('time(ms)');
+            stairs(obj.M_time_vec*10^3,rod2)
+            stairs(obj.M_time_vec*10^3,rod3)
+            stairs(obj.M_time_vec*10^3,rod4)
+            legend('el1','el2', 'el3', 'el4');
+            
+        end    
 
         
         
