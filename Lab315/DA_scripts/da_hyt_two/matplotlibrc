@@ -68,7 +68,7 @@ ytick.direction     : out       # direction: in or out
 # Legend
 # ------
 legend.fancybox      : True    # if True, use a rounded box for the legend
-legend.numpoints     : 2        # the number of points in the legend line
+legend.numpoints     : 1        # the number of points in the legend line
 #legend.fontsize      : small
 #legend.pad           : 0.0      # deprecated; the fractional whitespace inside the legend border
 #legend.borderpad     : 0.5      # border whitspace in fontsize units
