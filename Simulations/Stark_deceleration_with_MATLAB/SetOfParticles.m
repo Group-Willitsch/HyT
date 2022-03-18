@@ -47,7 +47,7 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
         end
         
          %% Propagate particles, intergate using time intervals in M_time_vector, propagating all the molecules together
-        function propagateParticles(obj)
+        function propagateParticles_euler(obj)
             
             % a function that remove the lost molecules
             function xyzVxyz = removeHitParticles(xyzVxyz)
