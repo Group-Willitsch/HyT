@@ -60,9 +60,97 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
             obj.xyzVxyz = obj.xyzVxyz_0;
             obj.xyzVxyz(:,1:3) = obj.xyzVxyz(:,1:3) + obj.xyzVxyz(:,4:6) * obj.myInput.params.FLY_incoupling_time;
             obj.xyzVxyz= removeHitParticles(obj.xyzVxyz);% select those that can enter dec
+%             hit_indices = obj.xyzVxyz(:,1) < obj.myInput.params.PHYS_length_dec & (abs(obj.xyzVxyz(:,2)) > obj.myInput.params.PHYS_seperation_pins/2 | abs(obj.xyzVxyz(:,3)) > obj.myInput.params.PHYS_seperation_pins/2);
+%             obj.xyzVxyz = obj.xyzVxyz(~hit_indices,:);
+%             obj.xyzVxyz = obj.xyzVxyz((abs(obj.xyzVxyz(:,1) - obj.xyzVxyz(1,1)) < 2* 5.5e-3), :);
 
             % propagate inside dec
-            fprintf("num/total switching\n");
+            
+            dt = 5e-8;
+%             fprintf("num/total switching\n");
+            if obj.myInput.params.FLY_focusing_mode_bool % focusing mode
+                dxyzVxyz = {@(y) [y(:, 4:6), obj.myInput.ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;obj.myInput.ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;obj.myInput.az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]                   
+                            @(y) [y(:, 4:6), obj.myInput.ax_neg_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-obj.myInput.az_neg_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;obj.myInput.ay_neg_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
+                            @(y) [y(:, 4:6), obj.myInput.ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-obj.myInput.az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;obj.myInput.ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
+                            @(y) [y(:, 4:6), obj.myInput.ax_pos_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;obj.myInput.ay_pos_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;obj.myInput.az_pos_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]
+                            @(y) [y(:, 4:6), obj.myInput.ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;obj.myInput.ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;obj.myInput.az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]
+                            @(y) [y(:, 4:6), obj.myInput.ax_pos_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-obj.myInput.az_pos_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;obj.myInput.ay_pos_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
+                            @(y) [y(:, 4:6), obj.myInput.ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-obj.myInput.az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;obj.myInput.ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
+                            @(y) [y(:, 4:6), obj.myInput.ax_neg_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;obj.myInput.ay_neg_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;obj.myInput.az_neg_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]};
+                for i = 1:1: (length(obj.myInput.M_time_vec) - 1)
+                    if size(obj.xyzVxyz,1) == 0
+                        error("All the molecules are lost after the %d switching!",i-1)
+                    end
+%                     fprintf("%d/%d\t%d\n",size(obj.xyzVxyz,1), obj.num_particles, i);
+                    
+                    for t = obj.myInput.M_time_vec(i):dt: obj.myInput.M_time_vec(i+1)
+                        obj.xyzVxyz = obj.xyzVxyz + dxyzVxyz{mod(i, 8)+8*(~mod(i, 8))}(obj.xyzVxyz) * dt;
+                    end
+                    obj.xyzVxyz= removeHitParticles(obj.xyzVxyz);
+                end
+                fprintf("%d out of %d particles left\n",size(obj.xyzVxyz,1), obj.num_particles);
+            else    % normal mode
+                dxyzVxyz = {@(y) [y(:, 4:6), obj.myInput.ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;obj.myInput.ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;obj.myInput.az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]                   
+                            @(y) [y(:, 4:6), obj.myInput.ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-obj.myInput.az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;obj.myInput.ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]};
+                
+                for i = 1: 1: (length(obj.myInput.M_time_vec) - 1)
+                    if size(obj.xyzVxyz,1) == 0
+                        error("All the molecules are lost after the %d switching!", i-1)
+                    end
+%                     fprintf("%d/%d\t%d\n",size(obj.xyzVxyz,1), obj.num_particles,i);
+                    for t = obj.myInput.M_time_vec(i):dt: obj.myInput.M_time_vec(i+1)
+                        obj.xyzVxyz = obj.xyzVxyz + dxyzVxyz{mod(i, 2)+2*(~mod(i, 2))}(obj.xyzVxyz) * dt;
+                    end
+                    obj.xyzVxyz= removeHitParticles(obj.xyzVxyz);
+                end
+            end
+            
+            figure;
+            obj.arrival_time = t(end) - (obj.xyzVxyz(:,1) - obj.myInput.params.PHYS_length_dec - obj.myInput.params.PHYS_exit_to_detection)./(obj.xyzVxyz(:,4)) + obj.myInput.params.FLY_incoupling_time;
+            histogram(obj.arrival_time, 100);
+
+            figure;
+            scatter(obj.xyzVxyz(:,1), obj.xyzVxyz(:,4));
+            
+        end
+        
+         %% Propagate particles, intergate using time intervals in M_time_vector, propagating all the molecules together
+        function propagateParticles_ode45(obj)
+            
+            % a function that remove the lost molecules
+            function xyzVxyz = removeHitParticles(xyzVxyz)
+                hit_indices = xyzVxyz(:,1) < obj.myInput.params.PHYS_length_dec & (abs(xyzVxyz(:,2)) > obj.myInput.params.PHYS_seperation_pins/2 | abs(xyzVxyz(:,3)) > obj.myInput.params.PHYS_seperation_pins/2);
+                xyzVxyz = xyzVxyz(~hit_indices,:);
+                xyzVxyz = xyzVxyz((abs(xyzVxyz(:,1) - xyzVxyz(1,1)) < 2* 5.5e-3), :);
+            end
+            
+            % first propagate to entrance of decelerator
+            obj.xyzVxyz = obj.xyzVxyz_0;
+            obj.xyzVxyz(:,1:3) = obj.xyzVxyz(:,1:3) + obj.xyzVxyz(:,4:6) * obj.myInput.params.FLY_incoupling_time;
+            obj.xyzVxyz= removeHitParticles(obj.xyzVxyz);% select those that can enter dec
+
+            % propagate inside dec
+%             fprintf("num/total switching\n");
             opts = odeset('RelTol',1e-6,'AbsTol',1e-6);
             if obj.myInput.params.FLY_focusing_mode_bool % focusing mode
                 dydt_array = {@(t,y) obj.dydtNormVerticalOn(t,y,size(obj.xyzVxyz,1)),...
@@ -78,13 +166,12 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
                     if size(obj.xyzVxyz,1) == 0
                         error("All the molecules are lost after the %d switching!",i-1)
                     end
-                    fprintf("%d/%d\t%d\n",size(obj.xyzVxyz,1), obj.num_particles, i);
+%                     fprintf("%d/%d\t%d\n",size(obj.xyzVxyz,1), obj.num_particles, i);
                     [t, y] = ode45(dydt_array{mod(i, 8)+8*(~mod(i, 8))}, [obj.myInput.M_time_vec(i), (obj.myInput.M_time_vec(i) + obj.myInput.M_time_vec(i+1))/2, obj.myInput.M_time_vec(i+1)], reshape(obj.xyzVxyz, [], 1), opts);
-                    obj.traj_time = [obj.traj_time; t]; 
                     obj.xyzVxyz = reshape(y(end,:), [], 6);
                     obj.xyzVxyz= removeHitParticles(obj.xyzVxyz);
                 end
-                
+                fprintf("%d out of %d particles left\n",size(obj.xyzVxyz,1), obj.num_particles);
             else    % normal mode
                 dydt_array = {@(t,y) obj.dydtNormVerticalOn(t,y,size(obj.xyzVxyz,1)),...
                               @(t,y) obj.dydtNormHorizontalOn(t,y,size(obj.xyzVxyz,1))};
@@ -92,18 +179,18 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
                     if size(obj.xyzVxyz,1) == 0
                         error("All the molecules are lost after the %d switching!", i-1)
                     end
-                    fprintf("%d/%d\t%d\n",size(obj.xyzVxyz,1), obj.num_particles,i);
+%                     fprintf("%d/%d\t%d\n",size(obj.xyzVxyz,1), obj.num_particles,i);
                     [t, y] = ode45(dydt_array{mod(i, 2)+2*(~mod(i, 2))}, [obj.myInput.M_time_vec(i), (obj.myInput.M_time_vec(i) + obj.myInput.M_time_vec(i+1))/2, obj.myInput.M_time_vec(i+1)], reshape(obj.xyzVxyz, [], 1), opts);             
                     obj.xyzVxyz = reshape(y(end,:), [], 6);
                     obj.xyzVxyz= removeHitParticles(obj.xyzVxyz);
                 end
             end
             
+            
             figure;
             obj.arrival_time = t(end) - (obj.xyzVxyz(:,1) - obj.myInput.params.PHYS_length_dec - obj.myInput.params.PHYS_exit_to_detection)./(obj.xyzVxyz(:,4)) + obj.myInput.params.FLY_incoupling_time;
             histogram(obj.arrival_time, 100);
-            
-            
+
             figure;
             scatter(obj.xyzVxyz(:,1), obj.xyzVxyz(:,4));
             
@@ -111,11 +198,11 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
         
         %% Obtain the acceleration by interpolation
         function dydt = dydtNormVerticalOn(obj,t,y,n)
-            dydt = [y(3*n+1:end); obj.myInput.ax_norm_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); [0;obj.myInput.ay_norm_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]; [0; obj.myInput.az_norm_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]]; 
+           dydt = [y(3*n+1:end); obj.myInput.ax_norm_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); [0;obj.myInput.ay_norm_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]; [0; obj.myInput.az_norm_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]]; 
         end
         
         function dydt = dydtNormHorizontalOn(obj,t,y,n)
-            dydt = [y(3*n+1:end); obj.myInput.ax_norm_H_interpl(y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); [0;-obj.myInput.az_norm_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]; [0;obj.myInput.ay_norm_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]]; 
+           dydt = [y(3*n+1:end); obj.myInput.ax_norm_H_interpl(y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); [0;-obj.myInput.az_norm_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]; [0;obj.myInput.ay_norm_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]]; 
         end
         
         function dydt = dydtNegVerticalOn(obj,t,y,n)
@@ -284,6 +371,8 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
             binsize = (max_time - min_time)/num_bins;
             tof_profile = zeros(num_bins,1);
             
+            
+            obj.arrival_time = obj.arrival_time(abs(obj.xyzVxyz(:,2)) < obj.myInput.params.FLY_detection_laser_diameter/2 & abs(obj.xyzVxyz(:,3)) < 2e-3);
             bin_begin_each_particle = int16((obj.arrival_time - obj.myInput.params.FLY_detection_laser_diameter/2/obj.xyzVxyz(:,4) - min_time)/binsize + 0.5);
             bin_end_each_particle =int16((obj.arrival_time + obj.myInput.params.FLY_detection_laser_diameter/2/obj.xyzVxyz(:,4) - min_time)/binsize + 0.5);
             
@@ -292,9 +381,12 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
                 tof_profile(bin_begin_each_particle(i):bin_end_each_particle(i)) = tof_profile(bin_begin_each_particle(i):bin_end_each_particle(i)) + 1;
             end
             
-            disp(size(time));
-            disp(size(tof_profile));
+%             disp(size(time));
+%             disp(size(tof_profile));
+            figure;
             plot(time(1:end-1), tof_profile);
+            xlabel('arrival time (s)')
+            ylabel('signal (arb. u)')
         end
     end
 end
