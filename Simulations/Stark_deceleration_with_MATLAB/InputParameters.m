@@ -109,7 +109,7 @@ classdef InputParameters < handle
             obj.params.BEAM_trans_velocity_spread = 5; % 	velocity spread perp. to beam axis/average velocity 0.10
 
             % Parameters used in fly and in the simulation
-            obj.params.FLY_incoupling_time = 710.2e-6; % valve - decelerator incoupling time (s)
+            obj.params.FLY_incoupling_time = obj.params.PHYS_valve_to_dec/obj.params.BEAM_avg_velocity_beam;%710.2e-6; % valve - decelerator incoupling time (s)
             obj.params.FLY_detection_laser_diameter = 1e-3;
             obj.params.FLY_simulated_target_vel = []; % to be assigned while loading or generating the Matlab sequence.
             % Stores the rounded value of the last velocity vector. Ideally
@@ -435,7 +435,7 @@ classdef InputParameters < handle
                     obj.dxdt(t,x), [0, 5e-3], [0; obj.params.CALC_vel_synch_mol], opts); % ode23t seems a good solver so why ode45 used?
             else %why dont we always use ode45 solver?
                 xx = [0; obj.params.CALC_vel_synch_mol];
-                t_step = 10e-9;
+                t_step = 1e-8;
                 tt= 0:t_step:5e-3;
                 x_Vx = zeros(length(tt),2);
                 for i = 1:1:length(tt)
@@ -455,7 +455,9 @@ classdef InputParameters < handle
             obj.M_synch_position = x_Vx_temp(:, 1); % reshape x and Vx
             obj.M_synch_velocity = x_Vx_temp(:, 2); clearvars x_Vx_temp; % ugly
             
-%             if abs(obj.M_synch_velocity(end)
+            if obj.M_synch_velocity(end) < 0
+                error("Sychronous molecule is bounced back, please lower the phase angle!")
+            end
 
             t_x_interpl = griddedInterpolant(obj.M_synch_position, obj.M_synch_time); % to obatain the exact field switching time based on the switching position (pos synchronus molecule)
             if obj.params.FLY_focusing_mode_bool
@@ -794,7 +796,7 @@ classdef InputParameters < handle
             xlabel('vector index'); ylabel('time (ns)'); legend()
             subplot(2, 1, 2)
             if obj.params.FLY_focusing_mode_bool
-                plot(obj.T2Jump_time_vec(1:end-2) - obj.M_time_vec(1:end-1) *1e9, '-o', 'DisplayName', 'difference'); 
+                plot(double(obj.T2Jump_time_vec(1:end-2)) - obj.M_time_vec(1:end-1) *1e9, '-o', 'DisplayName', 'difference'); 
                 fprintf('Removed one point in Matlab time vector and 2 points in Fortran time vector\n')
             else
                 % there seems to be an offset of 1010 us due to some fishy
