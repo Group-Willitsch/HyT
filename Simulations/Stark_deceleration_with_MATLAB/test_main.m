@@ -1,7 +1,7 @@
 clear all; close all;
 maxNumCompThreads(6);
 set(0, 'DefaultLineLineWidth', 3);
-myInput = InputParameters(12.5, true, 450, 30, 'Phase', 48.83, "FortranSeqBool", false);
+myInput = InputParameters(12.5, true, 450, 30, 'Phase', 48.83, "FortranSeqBool", false,'Verbose',true);
 % myInput = InputParameters(10, false, 450, 92);
 % myInput.loadFortranTimeSequence2();
 % myInput.loadAccelerationFields();
@@ -28,7 +28,7 @@ tic; test.propagateParticles_euler(); toc;
 % arrival_time_euler=test.arrival_time;
 % xyzVxyz_euler=test.xyzVxyz;
 % 
-% tic; test.propagateParticles_ode45(); toc;
+tic; test.propagateParticles_ode45(); toc;
 % arrival_time_ode45=test.arrival_time;
 % xyzVxyz_ode45=test.xyzVxyz;
 % 

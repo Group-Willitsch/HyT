@@ -905,19 +905,19 @@ classdef InputParameters < handle
 
 
 
-            figure();
-            slice(obj.ax_norm,ycut,xcut,zcut)
-            title('a_x NM'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar;
-
-            figure();
-            slice(obj.ay_norm,ycut,xcut,zcut)
-            title('a_y NM'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar; caxis([min(obj.ay_norm(:)),max(obj.ay_norm(:))]);
-
-
-            figure();
-            slice(obj.az_norm,ycut,xcut,zcut)
-            title('a_z NM'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar; caxis([-70000, 70000])
-
+% 
+%             figure(); % 3D plots of slices along each axes, problem is the scaling along each axis thus better plot spereately
+%             slice(obj.ax_norm,ycut,xcut,zcut)
+%             title('a_x NM'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar;
+% 
+%             figure();
+%             slice(obj.ay_norm,ycut,xcut,zcut)
+%             title('a_y NM'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar; caxis([min(obj.ay_norm(:)),max(obj.ay_norm(:))]);
+% 
+% 
+%             figure();
+%             slice(obj.az_norm,ycut,xcut,zcut)
+%             title('a_z NM'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar; caxis([-70000, 70000])
 
             if obj.params.FLY_focusing_mode_bool == true
 
@@ -999,7 +999,7 @@ classdef InputParameters < handle
                 slice_az_neg_a_z = permute(obj.az_neg(:,:,zcut), [2, 1, 3]);
 
 
-                                figure()
+                figure()
                 subplot(2,3,1)
                 imagesc(slice_az_pos_a_x); colorbar; axis xy;
                 xlabel('z (grid units)'); ylabel('x (grid units)'); title('acc az_{pos}, z-y');
@@ -1152,13 +1152,14 @@ classdef InputParameters < handle
             rod4= double(pattern== 1 | pattern==11)+7;
 
             figure()
+            title('Trigger sequence electrodes (Channel i labframe/other one')
             hold on
             stairs(obj.M_time_vec*10^3,rod1)
             ylim([0,9]); xlabel('time(ms)');
             stairs(obj.M_time_vec*10^3,rod2)
             stairs(obj.M_time_vec*10^3,rod3)
             stairs(obj.M_time_vec*10^3,rod4)
-            legend('el1','el2', 'el3', 'el4');
+            legend('ch.8 (G+/H+)','ch.9 (E-/H-)', 'ch.6 (H+/V+)', 'ch.7 (F-/V-)');
             
         end    
 
