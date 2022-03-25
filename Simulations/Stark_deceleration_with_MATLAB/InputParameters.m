@@ -36,6 +36,7 @@ classdef InputParameters < handle
         verbose % plots and print everything, false by default
         fortran_seq_bool % if false, ignore Fortran sequence (do not load it etc etc)
         always_generate_M_seq % force re-generation of M_seq regardless of whether it already exists
+        electrode_sequences % variable to save the integer arrays containg the sequence for each of the electrode
     end
 
     methods
@@ -102,14 +103,16 @@ classdef InputParameters < handle
             obj.params.CALC_Beff = 0.58; % B effective value of MK/J(J+1)
             
             % Parameters used for the molecular beam
-            obj.params.BEAM_avg_velocity_beam = 450; % Average velocity incoming package (m/s) probably wrong
+            obj.params.BEAM_avg_velocity_beam = 490; % Average velocity incoming package (m/s) 
             obj.params.BEAM_radius_of_nozzle = 0.25e-3; % radius of the valve nozzle (m)
-            obj.params.BEAM_long_pos_spread = 11.5e-3; % longitudinal position spread (m) - along x aixs or beam propagation
-            obj.params.BEAM_long_vel_spread = 0.20; % relative velocity spread along beam axis 0.112 0.12
-            obj.params.BEAM_trans_velocity_spread = 5; % 	velocity spread perp. to beam axis/average velocity 0.10
+            obj.params.BEAM_long_pos_spread = 11.5e-3; % ????? longitudinal position spread (m) - along x aixs or beam propagation
+            obj.params.BEAM_long_vel_spread = 0.13*obj.params.BEAM_avg_velocity_beam ; % relative velocity spread along beam axis 0.112 0.12
+            obj.params.BEAM_trans_velocity_spread = 5; % will be 15 or 25 in the end, arbitrary was not measured velocity spread perp. to beam axis/average velocity 0.10
+
+
 
             % Parameters used in fly and in the simulation
-            obj.params.FLY_incoupling_time = obj.params.PHYS_valve_to_dec/obj.params.BEAM_avg_velocity_beam;%710.2e-6; % valve - decelerator incoupling time (s)
+            obj.params.FLY_incoupling_time = obj.params.PHYS_valve_to_dec/obj.params.CALC_vel_synch_mol;%710.2e-6; % valve - decelerator incoupling time (s)
             obj.params.FLY_detection_laser_diameter = 1e-3;
             obj.params.FLY_simulated_target_vel = []; % to be assigned while loading or generating the Matlab sequence.
             % Stores the rounded value of the last velocity vector. Ideally
@@ -135,7 +138,16 @@ classdef InputParameters < handle
                 fprintf('Matlab sequence not found. Generating a new one.\n')
                 obj.generateMatlabTimeSequence();
             end
-            
+
+
+            [l,~]=size(obj.M_trigger_pattern);
+            obj.electrode_sequences=zeros(l,4);
+            pattern=char(obj.M_trigger_pattern); % ugly code to turn M_pattern into array of doubles such that we can compare the pattern such that we get a string of ones and zeros
+            pattern=double(string(pattern(:,end-3:end))); % the same length as M_pattern where 1 means the correspondign electrode is on or off at this specific time
+            obj.electrode_sequences(:,1)= double(pattern== 1000 | pattern==1100)+1; % numbering of electrtodes follows b1100 sample where electrode corresponds to the electrode represented by the first number of b1100 etc.
+            obj.electrode_sequences(:,2)= double(pattern== 100 | pattern==1100)+3; % we add numbers to put the on same plot but still be able to see each individual sequence
+            obj.electrode_sequences(:,3)= double(pattern== 10 | pattern==11)+5; % to get meaning of the numbers b1000=1000, b1100=1100, b0011= 11, b0010=10, b0001=1
+            obj.electrode_sequences(:,4)= double(pattern== 1 | pattern==11)+7;            
             obj.InterpolateAccField()
 
         end
@@ -148,8 +160,11 @@ classdef InputParameters < handle
         %% Load the acceleration fields
         % (TODO: maybe the negative one can be obtained via a flip of the postive
         % one)
-        function loadAccelerationFields(obj)
-            if obj.params.FLY_focusing_mode_bool == false % load normal fields
+        function loadAccelerationFields(obj)           
+            if ~obj.params.FLY_focusing_mode_bool % load normal fields
+                if ~isempty(obj.ax_norm)
+                    [obj.ax_norm, obj.ay_norm, obj.az_norm] = deal([],[],[]);
+                end    
                 fprintf('Loading normal mode fields ...\t')
                 fieldFolder = '../dec_Norm_' + strrep( string(obj.params.FLY_voltage_on_electrodes), '.', 'p') + 'kV/output/';
                 paren = @(x, varargin) x(varargin{:}); % in-line function to reshape a matrix without a temporary variable
@@ -182,6 +197,10 @@ classdef InputParameters < handle
                 fprintf('Loading focusing mode accelerations...')
                 fieldFolder = '../dec_FM_' + strrep( string(obj.params.FLY_voltage_on_electrodes), '.', 'p') + 'kV/output/';
 %                fieldFolder = strrep(fieldFolder, '.', 'p'); % replace dot with p
+                if ~isempty(obj.ax_pos)
+                    [obj.ax_pos, obj.ax_neg, obj.ay_pos, obj.ay_neg, obj.az_pos, obj.az_neg] = deal([], [], [], [], [], []);
+                end
+                 
                 
                 % follows ugly but fast code to read all the acc files. In
                 % steps:
@@ -190,6 +209,7 @@ classdef InputParameters < handle
                 % acczyx = reshape(fields, [41, 41, 151]);
                 % accxyz = permute(acczyx, [3 2 1]);
                 paren = @(x, varargin) x(varargin{:}); % in-line function to reshape a matrix without a temporary variable
+              
                 % Here again ax, ay, az were reshapded to n-begin-n-end
                 % (21-131)
                 obj.ax_norm = permute( reshape( table2array( paren( ...
@@ -255,10 +275,14 @@ classdef InputParameters < handle
                  obj.az_pos = (obj.az_pos - flip(obj.az_neg, 3))/2;
                  obj.az_neg = - flip(obj.az_pos, 3);
 
+%                 if ~isempty(obj.ax_norm)
+%                     [obj.ax_norm, obj.ay_norm, obj.az_norm] = deal([],[],[]);
+%                 end
+
         
                 
                 
-            end
+            end % when calling this function we have to also call interpolateAccField again in order 
             fprintf('\tloaded\n')
         end
         
@@ -406,7 +430,7 @@ classdef InputParameters < handle
         % be quite usefull later on in the full simulation
 
         function [simulated_target_vel] = generateMatlabTimeSequence(obj, verbose)
-            % verbose is optional argument to plot the result
+            % verbose is optional argument to plot the pattern=char(obj.M_trigger_pattern); % ugly code to turn M_pattern into array of doubles such that we can compare the pattern such that we get a string of ones and zeros
             if nargin == 1 
                 verbose = obj.verbose; % set to default
             end
@@ -433,7 +457,7 @@ classdef InputParameters < handle
                 opts = odeset('RelTol', 1e-8, 'AbsTol', 1e-8, 'Events', @(t,x) EventsFcn(t,x));
                 [obj.M_synch_time, x_Vx_temp] = ode45( @(t,x) ...
                     obj.dxdt(t,x), [0, 5e-3], [0; obj.params.CALC_vel_synch_mol], opts); % ode23t seems a good solver so why ode45 used?
-            else %why dont we always use ode45 solver?
+            else
                 xx = [0; obj.params.CALC_vel_synch_mol];
                 t_step = 1e-8;
                 tt= 0:t_step:5e-3;
@@ -478,7 +502,7 @@ classdef InputParameters < handle
                 obj.M_trigger_pattern = trigger_pattern(1:length(obj.M_time_vec));
                 obj.M_trigger_pattern(end-1:end)= "0x0000";
             end
-            
+            fprintf("Precise final velocity of sequence is %s", num2str(obj.M_synch_velocity(end)))
             obj.params.FLY_simulated_target_vel = round( obj.M_synch_velocity(end), 0);
             % stores in a quite useless but safe variable the effective final velocity
             % Will be used to create the filename
@@ -493,64 +517,12 @@ classdef InputParameters < handle
 %                 fclose(seq_file);
 %             end
 
-            if verbose % we plot the synch molecule
+            if obj.verbose % we plot the synch molecule
 
                 obj.plotTimeSequence()
 
                 
-                figure('Name', 'Time seq with Matlab');
-
-                subplot(2, 3, 1)    % x vs t
-                plot(obj.M_synch_time .* 1e3, obj.M_synch_position);
-                title('Position vs time'); ylabel('x (m)'); xlabel('t (ms)')
-
-                % linear trendline, see below
-%                 linear_velocity = obj.params.CALC_vel_synch_mol - ...
-%                         (obj.params.CALC_vel_synch_mol - ...21:131
-%                         obj.M_synch_velocity(end)) / ...
-%                         obj.M_synch_time(end) .* obj.M_synch_time;
-                % THE FINAL TIME IS OVERESTIMATED, BECAUSE THAT IS THE TIME
-                % AT WHICH IT EXITs
-                % THE DECELERATOR; BUT THE DECELRATION
-                % STOPS EARLIER; TODO TO BE FIXED
-
-                subplot(2, 3, 2) % Vx vs t
-                plot(obj.M_synch_time .* 1e3, obj.M_synch_velocity );            
-                title('Velocity vs time'); ylabel('Vx (m/s)'); xlabel('t (ms)')
-
-                subplot(2, 3, 4) % Vx vs x
-                plot(obj.M_synch_position, obj.M_synch_velocity );            
-                title('Velocity vs space'); ylabel('Vx (m/s)'); xlabel('x (m)')
-
-                subplot(2, 3, 5) % Vx vs t, minus a trendline of linear deceleration
-                ax=diff(obj.M_synch_velocity)./diff(obj.M_synch_time);
-                ax=[0;ax];
-                plot(obj.M_synch_time .*1e3,ax, '-k.', 'LineWidth', 0.5);
-                title('ax (m/s^2) vs t(ms)'); ylabel('ax (m/s62)'); xlabel('t (ms)');
-                % that follows V(t) =  V_0 - (V_0 - V_final) / t_final * t
-                % whre V_0 = starting velocity, V_final t_final velocity
-                % and time of the last instant of the simulation
-%                plot(obj.M_synch_time .* 1e3, obj.M_synch_velocity - linear_velocity);
-%                 title('Vx (m/s) - linear decrease'); ylabel('Vx (m/s)'); xlabel('t (ms)');
-
-
-
-                
-                % plot the single timesteps, to see how they very in the
-                % variable-timestep ODE solvers of MATLAB. 
-                % get rid of first and few last ones as they screw up the
-                % plotting
-                subplot(2, 3, 3)
-                time_step_difference = circshift(obj.M_synch_time*1e9, 1) - obj.M_synch_time*1e9;
-                time_step_difference = - circshift(obj.M_synch_time, 1) + obj.M_synch_time;
-                time_step_difference = time_step_difference(2:end-7);
-                plot(time_step_difference * 1e6, '--o')
-                xlabel('Index of vector'); ylabel('Intergation timestep (ns)'); title('Time steps of the integration')
-
-                subplot(2, 3, 6)
-                histogram(time_step_difference, 300)
-                xlabel('Intergation timestep (ns)'); title('Histrogram of time steps')
-
+               
             end
             fprintf('\tFinal Matlab velocity is %d\n', obj.params.FLY_simulated_target_vel)
             simulated_target_vel = obj.params.FLY_simulated_target_vel; 
@@ -561,7 +533,7 @@ classdef InputParameters < handle
         
         function dxdt = dxdt(obj, t, x)
             if obj.params.FLY_focusing_mode_bool 
-                if x(1) > obj.params.PHYS_length_dec - (obj.params.PHYS_distance_stages/2 - obj.params.CALC_phase_distance)
+                if x(1) > obj.params.PHYS_length_dec -(obj.params.PHYS_distance_stages/2 - obj.params.CALC_phase_distance)
                     dxdt = [x(2); 0];
                 elseif x(1) < obj.params.PHYS_distance_stages/2 + obj.params.CALC_phase_distance
                     dxdt = [x(2); obj.ax_norm_1d_interpl(x(1))];
@@ -710,7 +682,6 @@ classdef InputParameters < handle
             fprintf('\t\tdone\n')
 
             if obj.verbose
-
                 obj.plotTimeSequence()
             end    
 
@@ -720,7 +691,7 @@ classdef InputParameters < handle
         %% changeFieldConfig
         % This function re-loads the fields and must be used whenever
         % you want to change voltage values or focusing/normal mode
-        function changeFieldConfig(obj, new_voltage, new_focusing_mode_bool)
+        function changeFieldConfig(obj, new_voltage, new_focusing_mode_bool) %There is a problem when chaning from NM to FM but not other way around
             if nargin ~= 3 
                 fprintf('Wrong changeFieldConfig call.\nUsage changeFieldConfig( new_voltage, new_focusing_mode_bool)\n')
                 return
@@ -729,8 +700,15 @@ classdef InputParameters < handle
                 obj.params.FLY_voltage_on_electrodes = new_voltage;
                 obj.params.FLY_focusing_mode_bool = new_focusing_mode_bool;
             end
+%             if ~isempty(obj.ax_norm)
+%                  [obj.ax_norm, obj.ay_norm, obj.az_norm] = deal([],[],[]);
+%             end
+%             if ~isempty(obj.ax_pos)
+%                  [obj.ax_pos, obj.ax_neg, obj.ay_pos, obj.ay_neg, obj.az_pos, obj.az_neg] = deal([], [], [], [], [], []);
+%             end
             % re-load acceleration fields
             obj.loadAccelerationFields();
+            obj.InterpolateAccField()
 
             % re-load Fortran sequence, if fortran_seq_bool
             if obj.fortran_seq_bool
@@ -746,7 +724,7 @@ classdef InputParameters < handle
                 fprintf('Matlab sequence not found. Generating a new one.\n')
                 obj.generateMatlabTimeSequence();
             end
-            fprintf('TODO: to be tested properly')
+%             fprintf('TODO: to be tested properly \n')
         end
 
         %% changeVelocities
@@ -786,7 +764,7 @@ classdef InputParameters < handle
                 obj.generateMatlabTimeSequence();
             end
             fprintf("Velocities changed\n")
-            fprintf('TODO: to be tested properly')
+%             fprintf('TODO: to be tested properly \n')
         end
 
         %% compareSequences
@@ -1064,7 +1042,7 @@ classdef InputParameters < handle
                 
                 
                 
-                
+                10e3;
 %                 figure()
 %                 subplot(3,1,1)
 %                 imagesc(slice_ax_neg_a_y); colorbar;
@@ -1142,24 +1120,95 @@ classdef InputParameters < handle
         end
 
         function plotTimeSequence(obj)
+            pattern=char(obj.M_trigger_pattern); % ugly code to turn M_pattern into array of doubles such that we can compare the pattern such that we get a string of ones and zeros           
+            pattern=double(string(pattern(:,end-3:end))); % the same length as M_pattern where 1 means the correspondign electrode is on or off at this specific time     
+
+            if  obj.params.FLY_focusing_mode_bool            
+                rod1= double(pattern== 1000 | pattern==1100)+1; % numbering of electrtodes follows b1100 sample where electrode corresponds to the electrode represented by the first number of b1100 etc           
+                rod2= double(pattern== 100 | pattern==1100)+3; % we add numbers to put the on same plot but still be able to see each individual sequence            
+                rod3= double(pattern== 10 | pattern==11)+5; % to get meaning of the numbers b1000=1000, b1100=1100, b0011= 11, b0010=10, b0001=1            
+                rod4= double(pattern== 1 | pattern==11)+7;
 
 
-            pattern=char(obj.M_trigger_pattern); % ugly code to turn M_pattern into array of doubles such that we can compare the pattern such that we get a string of ones and zeros
-            pattern=double(string(pattern(:,end-3:end))); % the same length as M_pattern where 1 means the correspondign electrode is on or off at this specific time
-            rod1= double(pattern== 1000 | pattern==1100)+1; % numbering of electrtodes follows b1100 sample where electrode corresponds to the electrode represented by the first number of b1100 etc.
-            rod2= double(pattern== 100 | pattern==1100)+3; % we add numbers to put the on same plot but still be able to see each individual sequence
-            rod3= double(pattern== 10 | pattern==11)+5; % to get meaning of the numbers b1000=1000, b1100=1100, b0011= 11, b0010=10, b0001=1
-            rod4= double(pattern== 1 | pattern==11)+7;
+               
+                title('Trigger sequence electrodes (Channel i labframe/other one)')
+                hold on
+                stairs(obj.M_time_vec*10^3,rod1) 
+                ylim([0,9]); xlabel('time(ms)');
+                stairs(obj.M_time_vec*10^3,rod2)
+                stairs(obj.M_time_vec*10^3,rod3)
+                stairs(obj.M_time_vec*10^3,rod4)
+                legend('ch.8 (G+/H+)','ch.9 (E-/H-)', 'ch.6 (H+/V+)', 'ch.7 (F-/V-)');
+                hold off
+            else
+                rod12= double(pattern== 10)+1;
+                rod23= double(pattern== 20)+3;
+                figure()
+                title('Trigger sequence electrodes (labframe)')
+                hold on
+                stairs(obj.M_time_vec*10^3,rod12) 
+                ylim([0,5]); xlabel('time(ms)');
+                stairs(obj.M_time_vec*10^3,rod23)
+                legend('vertical el. (H+,F-)','horizontal el. (E-,G+)');
+                hold off
+            end
 
-            figure()
-            title('Trigger sequence electrodes (Channel i labframe/other one')
-            hold on
-            stairs(obj.M_time_vec*10^3,rod1)
-            ylim([0,9]); xlabel('time(ms)');
-            stairs(obj.M_time_vec*10^3,rod2)
-            stairs(obj.M_time_vec*10^3,rod3)
-            stairs(obj.M_time_vec*10^3,rod4)
-            legend('ch.8 (G+/H+)','ch.9 (E-/H-)', 'ch.6 (H+/V+)', 'ch.7 (F-/V-)');
+             figure('Name', 'Time seq with Matlab');
+
+                subplot(2, 3, 1)    % x vs t
+                plot(obj.M_synch_time .* 1e3, obj.M_synch_position);
+                title('Position vs time'); ylabel('x (m)'); xlabel('t (ms)')
+
+                % linear trendline, see below
+%                 linear_velocity = obj.params.CALC_vel_synch_mol - ...
+%                         (obj.params.CALC_vel_synch_mol - ...21:131
+%                         obj.M_synch_velocity(end)) / ...
+%                         obj.M_synch_time(end) .* obj.M_synch_time;
+                % THE FINAL TIME IS OVERESTIMATED, BECAUSE THAT IS THE TIME
+                % AT WHICH IT EXITs
+                % THE DECELERATOR; BUT THE DECELRATION
+                % STOPS EARLIER; TODO TO BE FIXED
+
+                subplot(2, 3, 2) % Vx vs t
+                plot(obj.M_synch_time .* 1e3, obj.M_synch_velocity );            
+                title('Velocity vs time'); ylabel('Vx (m/s)'); xlabel('t (ms)')
+
+                subplot(2, 3, 4) % Vx vs x
+                plot(obj.M_synch_position, obj.M_synch_velocity );            
+                title('Velocity vs space'); ylabel('Vx (m/s)'); xlabel('x (m)')
+
+                subplot(2, 3, 5) % Vx vs t, minus a trendline of linear deceleration
+                ax=diff(obj.M_synch_velocity)./diff(obj.M_synch_time);
+                ax=[0;ax];
+                plot(obj.M_synch_time .*1e3,ax, '-k.', 'LineWidth', 0.5);
+                title('ax (m/s^2) vs t(ms)'); ylabel('ax (m/s62)'); xlabel('t (ms)');
+                % that follows V(t) =  V_0 - (V_0 - V_final) / t_final * t
+                % whre V_0 = starting velocity, V_final t_final velocity
+                % and time of the last instant of the simulation
+%                plot(obj.M_synch_time .* 1e3, obj.M_synch_velocity - linear_velocity);
+%                 title('Vx (m/s) - linear decrease'); ylabel('Vx (m/s)'); xlabel('t (ms)');
+
+
+
+                
+                % plot the single timesteps, to see how they very in the
+                % variable-timestep ODE solvers of MATLAB. 
+                % get rid of first and few last ones as they screw up the
+                % plotting
+                subplot(2, 3, 3)
+                time_step_difference = circshift(obj.M_synch_time*1e9, 1) - obj.M_synch_time*1e9;
+                time_step_difference = - circshift(obj.M_synch_time, 1) + obj.M_synch_time;
+                time_step_difference = time_step_difference(2:end-7);
+                plot(time_step_difference * 1e6, '--o')
+                xlabel('Index of vector'); ylabel('Intergation timestep (ns)'); title('Time steps of the integration')
+
+                subplot(2, 3, 6)
+                histogram(time_step_difference, 300)
+                xlabel('Intergation timestep (ns)'); title('Histrogram of time steps')
+
+
+            
+
             
         end    
 
