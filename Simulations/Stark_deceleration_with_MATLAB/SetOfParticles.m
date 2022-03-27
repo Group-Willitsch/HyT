@@ -10,32 +10,37 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
 %     - slim down the trayectories you may want to save, or keep the relevant results of the simulation (like TOF profile) in internal and .mat variables.
 
     properties
-        myInput
+        in                              % InputParams class, to be removed maybe?
         num_particles
-        xyzVxyz_0               % the vector of initial pos&vel, number_of_particles * 6
-        xyzVxyz                 % the vector of computed pos&vel, number_of_particles * 6
+        xyzVxyz_0                       % the vector of initial pos&vel, number_of_particles * 6
+        xyzVxyz                         % the vector of computed pos&vel, number_of_particles * 6
         has_the_simulation_been_run     % boolean, default is False in constructor, will be switched to True at the end of the simulation
-        num_trajectories_saved
-        arrival_time
-        output                     % save xyzVxyz , t and flag at certain times and display here
-        
-        traj_xyzVxyz % trajectories x,y,z, Vx, Vy, Vz
-        traj_time
+        num_trajectories_saved          % number of trajectories to be saved
+        arrival_time                    % TODO; WTF? this variable is defined in some plotting function?? Maybe better just a lcoal variable
+        output                          % save xyzVxyz , t and flag at certain times and display here
+        traj_xyzVxyz                    % trajectories x,y,z, Vx, Vy, Vz
+        traj_time                       % ?????
         ind_particles                 % index of particles created at begining saving the indexes of the ones that make it to the end
-        TOF_xyzVxyz                   % variable to save xyzVxyz at the time step/steps of detetcion
+        TOF_xyzVxyz                   % Time of Flight: variable to save xyzVxyz at the time step/steps of detetcion
         TOF_save     
     end
     
     methods
         %% CONSTRUCTOR
-        function obj = SetOfParticles(InputParameters)
-
-            if nargin >= 1
-                obj.myInput = InputParameters;
+        function obj = SetOfParticles(in, num_particles, options)
+            arguments % list of mandary and optional arguments
+            in                          InputParameters            
+            num_particles               int64 
+            options.NumTrajToBeSaved    int64 = 100 % default number of trajectors to be saved, if you want to svae them
             end
-            
+
+            if nargin < 2 % (if ... will probably fail earlier...)
+                 fprintf('Usage: SetOfParticles( InputParameters, num_particles, options)\n(Options are: \t NumTrajToBeSaved\)\n')
+            end
+            obj.in = in;
+            obj.num_particles = num_particles;            
+            obj.num_trajectories_saved = options.NumTrajToBeSaved;
             obj.has_the_simulation_been_run = false;
-            obj.num_trajectories_saved = 100;
         end
         
         %% create particles
@@ -43,39 +48,41 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
 %         function createParticles(obj)
 %             rng('default') % fix the seed of the random nunber generator to bremoved afterwards
 %             obj.xyzVxyz_0 = randn(obj.num_particles, 6)/sqrt(8*log(2)).*... %conversion factor to std from full width half max, below adjust normal dist. to represent particles
-%                 [obj.myInput.params.BEAM_long_pos_spread, obj.myInput.params.BEAM_radius_of_nozzle, obj.myInput.params.BEAM_radius_of_nozzle,...                            
-%                  obj.myInput.params.BEAM_long_vel_spread, obj.myInput.params.BEAM_trans_velocity_spread, obj.myInput.params.BEAM_trans_velocity_spread] + ...
-%                 [-obj.myInput.params.PHYS_valve_to_dec, 0, 0, obj.myInput.params.BEAM_avg_velocity_beam, 0, 0]; %set v_x to avergae and set all particles to valve pos. (decc x=0)
+%                 [obj.in.params.BEAM_long_pos_spread, obj.in.params.BEAM_radius_of_nozzle, obj.in.params.BEAM_radius_of_nozzle,...                            
+%                  obj.in.params.BEAM_long_vel_spread, obj.in.params.BEAM_trans_velocity_spread, obj.in.params.BEAM_trans_velocity_spread] + ...
+%                 [-obj.in.params.PHYS_valve_to_dec, 0, 0, obj.in.params.BEAM_avg_velocity_beam, 0, 0]; %set v_x to avergae and set all particles to valve pos. (decc x=0)
 % 
-%             obj.xyzVxyz_0(1,:) = [-obj.myInput.params.PHYS_valve_to_dec, 0, 0, 450, 0, 0]; % The first row is for a synchronous molecule
+%             obj.xyzVxyz_0(1,:) = [-obj.in.params.PHYS_valve_to_dec, 0, 0, 450, 0, 0]; % The first row is for a synchronous molecule
 %             E_kin=((0.5*((obj.xyzVxyz_0(:,4)).^2 + (obj.xyzVxyz_0(:,5)).^2 + (obj.xyzVxyz_0(:,6)).^2))-0.5*(obj.xyzVxyz_0(1,4).^2 + obj.xyzVxyz_0(1,5).^2 + obj.xyzVxyz_0(1,6).^2))*1e-5;           
 %             sort_E_kin= [obj.xyzVxyz_0,abs(E_kin)];
 %             sort_E_kin= sortrows(sort_E_kin,7);
 %             obj.xyzVxyz_0=sort_E_kin(:,1:6);   
 %         end
 
-function createParticles(obj,myInput_l)
-            rng('default') % fix the seed of the random nunber generator to bremoved afterwards
-            xyzVxyz_0_l = randn(obj.num_particles, 6)/sqrt(8*log(2)).*... %conversion factor to std from full width half max, below adjust normal dist. to represent particles
-                [myInput_l.BEAM_long_pos_spread, myInput_l.BEAM_radius_of_nozzle, myInput_l.BEAM_radius_of_nozzle,...
-                myInput_l.BEAM_long_vel_spread, myInput_l.BEAM_trans_velocity_spread, myInput_l.BEAM_trans_velocity_spread] + ...
-                [-myInput_l.PHYS_valve_to_dec, 0, 0, myInput_l.BEAM_avg_velocity_beam, 0, 0]; %set v_x to avergae and set all particles to valve pos. (decc x=0)
 
-            xyzVxyz_0_l(1,:) = [-myInput_l.PHYS_valve_to_dec, 0, 0, 450, 0, 0]; % The first row is for a synchronous molecule
-            E_kin=((0.5*((xyzVxyz_0_l(:,4)).^2 + (xyzVxyz_0_l(:,5)).^2 + (xyzVxyz_0_l(:,6)).^2))-0.5*(xyzVxyz_0_l(1,4).^2 + xyzVxyz_0_l(1,5).^2 + xyzVxyz_0_l(1,6).^2))*1e-5;
-            sort_E_kin= [xyzVxyz_0_l,abs(E_kin)];
-            sort_E_kin= sortrows(sort_E_kin,7);
-            xyzVxyz_0_l=sort_E_kin(:,1:6);
+        function createParticles(obj,in_l) % WHAT IS IN_l?? CRYPTIC NAME 
+            rng('default') % fix the seed of the random nunber generator to bremoved afterwards
+            
+            xyzVxyz_0_l = randn(obj.num_particles, 6)/sqrt(8*log(2)).*... %conversion factor to std from full width half max, below adjust normal dist. to represent particles
+                [in_l.BEAM_long_pos_spread, in_l.BEAM_radius_of_nozzle, in_l.BEAM_radius_of_nozzle,...
+                in_l.BEAM_long_vel_spread, in_l.BEAM_trans_velocity_spread, in_l.BEAM_trans_velocity_spread] + ...
+                [-in_l.PHYS_valve_to_dec, 0, 0, in_l.BEAM_avg_velocity_beam, 0, 0]; %set v_x to avergae and set all particles to valve pos. (decc x=0)
+
+            xyzVxyz_0_l(1,:) = [-in_l.PHYS_valve_to_dec, 0, 0, 450, 0, 0]; % The first row is for a synchronous molecule
+            E_kin = ((0.5*((xyzVxyz_0_l(:, 4)).^2 + (xyzVxyz_0_l(:, 5)).^2 + (xyzVxyz_0_l(:, 6)).^2))-0.5*(xyzVxyz_0_l(1,4).^2 + xyzVxyz_0_l(1,5).^2 + xyzVxyz_0_l(1,6).^2))*1e-5;
+            sort_E_kin = [xyzVxyz_0_l, abs(E_kin)];
+            sort_E_kin = sortrows(sort_E_kin, 7);
+            xyzVxyz_0_l = sort_E_kin(:, 1:6);
             obj.xyzVxyz_0 = xyzVxyz_0_l;
         end
 
         
-         %% Propagate particles, intergate using time intervals in M_time_vector, propagating all the molecules together
+%% Propagate particles, intergate using time intervals in M_time_vector, propagating all the molecules together
         function propagateParticles_euler(obj)
             
 %             a function that removes the lost molecules
             function [xyzVxyz,ind_particles] = removeHitParticles(xyzVxyz,ind_particles)
-                hit_indices = xyzVxyz(:,1) < obj.myInput.params.PHYS_length_dec & (abs(xyzVxyz(:,2)) > obj.myInput.params.PHYS_seperation_pins/2 | abs(xyzVxyz(:,3)) > obj.myInput.params.PHYS_seperation_pins/2);
+                hit_indices = xyzVxyz(:,1) < obj.in.params.PHYS_length_dec & (abs(xyzVxyz(:,2)) > obj.in.params.PHYS_seperation_pins/2 | abs(xyzVxyz(:,3)) > obj.in.params.PHYS_seperation_pins/2);
                 xyzVxyz = xyzVxyz(~hit_indices,:);
                 ind_particles = ind_particles(~hit_indices);
                 hit_indices = (abs(xyzVxyz(:,1) - xyzVxyz(1,1)) < 2* 5.5e-3); % separated the cut of the fish in x into two lines in order to make indexing work and also to be sure its correct
@@ -89,9 +96,9 @@ function createParticles(obj,myInput_l)
             % first propagate to entrance of decelerator
             obj.xyzVxyz = obj.xyzVxyz_0;
             obj.ind_particles = transpose(1:size(obj.xyzVxyz,1));
-            obj.xyzVxyz(:,1:3) = obj.xyzVxyz(:,1:3) + obj.xyzVxyz(:,4:6) * obj.myInput.params.FLY_incoupling_time; % ekin at start of deacc.
+            obj.xyzVxyz(:,1:3) = obj.xyzVxyz(:,1:3) + obj.xyzVxyz(:,4:6) * obj.in.params.FLY_incoupling_time; % ekin at start of deacc.
             [obj.xyzVxyz,obj.ind_particles]= removeHitParticles(obj.xyzVxyz, obj.ind_particles );% select those that can enter dec
-%             hit_indices = obj.xyzVxyz(:,1) < obj.myInput.params.PHYS_length_dec & (abs(obj.xyzVxyz(:,2)) > obj.myInput.params.PHYS_seperation_pins/2 | abs(obj.xyzVxyz(:,3)) > obj.myInput.params.PHYS_seperation_pins/2);
+%             hit_indices = obj.xyzVxyz(:,1) < obj.in.params.PHYS_length_dec & (abs(obj.xyzVxyz(:,2)) > obj.in.params.PHYS_seperation_pins/2 | abs(obj.xyzVxyz(:,3)) > obj.in.params.PHYS_seperation_pins/2);
 %             obj.xyzVxyz = obj.xyzVxyz(~hit_indices,:);
 %             obj.xyzVxyz = obj.xyzVxyz((abs(obj.xyzVxyz(:,1) - obj.xyzVxyz(1,1)) < 2* 5.5e-3), :);
 
@@ -99,58 +106,58 @@ function createParticles(obj,myInput_l)
             
             dt = 4e-8;
 %             fprintf("num/total switching\n");
-            obj.Snapshot("start decelerator",obj.myInput.M_time_vec(1),obj.xyzVxyz, obj.ind_particles)
-            if obj.myInput.params.FLY_focusing_mode_bool % focusing mode
-                dxyzVxyz = {@(y) [y(:, 4:6), obj.myInput.ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
-                                                 [0;obj.myInput.ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
-                                                 [0;obj.myInput.az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]                   
-                            @(y) [y(:, 4:6), obj.myInput.ax_neg_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
-                                                 [0;-obj.myInput.az_neg_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
-                                                 [0;obj.myInput.ay_neg_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
-                            @(y) [y(:, 4:6), obj.myInput.ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
-                                                 [0;-obj.myInput.az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
-                                                 [0;obj.myInput.ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
-                            @(y) [y(:, 4:6), obj.myInput.ax_pos_interpl(y(:, 1), y(:, 2), y(:, 3)),...
-                                                 [0;obj.myInput.ay_pos_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
-                                                 [0;obj.myInput.az_pos_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]
-                            @(y) [y(:, 4:6), obj.myInput.ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
-                                                 [0;obj.myInput.ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
-                                                 [0;obj.myInput.az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]
-                            @(y) [y(:, 4:6), obj.myInput.ax_pos_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
-                                                 [0;-obj.myInput.az_pos_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
-                                                 [0;obj.myInput.ay_pos_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
-                            @(y) [y(:, 4:6), obj.myInput.ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
-                                                 [0;-obj.myInput.az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
-                                                 [0;obj.myInput.ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
-                            @(y) [y(:, 4:6), obj.myInput.ax_neg_interpl(y(:, 1), y(:, 2), y(:, 3)),...
-                                                 [0;obj.myInput.ay_neg_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
-                                                 [0;obj.myInput.az_neg_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]};
+            obj.Snapshot("start decelerator",obj.in.M_time_vec(1),obj.xyzVxyz, obj.ind_particles)
+            if obj.in.params.FLY_focusing_mode_bool % focusing mode
+                dxyzVxyz = {@(y) [y(:, 4:6), obj.in.ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;obj.in.ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;obj.in.az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]                   
+                            @(y) [y(:, 4:6), obj.in.ax_neg_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-obj.in.az_neg_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;obj.in.ay_neg_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
+                            @(y) [y(:, 4:6), obj.in.ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-obj.in.az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;obj.in.ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
+                            @(y) [y(:, 4:6), obj.in.ax_pos_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;obj.in.ay_pos_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;obj.in.az_pos_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]
+                            @(y) [y(:, 4:6), obj.in.ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;obj.in.ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;obj.in.az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]
+                            @(y) [y(:, 4:6), obj.in.ax_pos_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-obj.in.az_pos_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;obj.in.ay_pos_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
+                            @(y) [y(:, 4:6), obj.in.ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-obj.in.az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;obj.in.ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
+                            @(y) [y(:, 4:6), obj.in.ax_neg_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;obj.in.ay_neg_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;obj.in.az_neg_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]};
 
-                for i = 1:1: (length(obj.myInput.M_time_vec) - 2) %since free propagation is done with euler
+                for i = 1:1: (length(obj.in.M_time_vec) - 2) %since free propagation is done with euler
                     if size(obj.xyzVxyz,1) == 0
                         error("All the molecules are lost after the %d switching!",i-1)
                     end
 %                     fprintf("%d/%d\t%d\n",size(obj.xyzVxyz,1), obj.num_particles, i);
-                    for t = obj.myInput.M_time_vec(i):dt: obj.myInput.M_time_vec(i+1)
+                    for t = obj.in.M_time_vec(i):dt: obj.in.M_time_vec(i+1)
                         obj.xyzVxyz = obj.xyzVxyz + dxyzVxyz{mod(i, 8)+8*(~mod(i, 8))}(obj.xyzVxyz) * dt;
                     end
                     [obj.xyzVxyz,obj.ind_particles]= removeHitParticles(obj.xyzVxyz, obj.ind_particles );
                 end
                 fprintf("%d out of %d particles left\n",size(obj.xyzVxyz,1), obj.num_particles);
             else    % normal mode
-                dxyzVxyz = {@(y) [y(:, 4:6), obj.myInput.ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
-                                                 [0;obj.myInput.ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
-                                                 [0;obj.myInput.az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]                   
-                            @(y) [y(:, 4:6), obj.myInput.ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
-                                                 [0;-obj.myInput.az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
-                                                 [0;obj.myInput.ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]};
+                dxyzVxyz = {@(y) [y(:, 4:6), obj.in.ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;obj.in.ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;obj.in.az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]                   
+                            @(y) [y(:, 4:6), obj.in.ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-obj.in.az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;obj.in.ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]};
                 
-                for i = 1: 1: (length(obj.myInput.M_time_vec) - 2)
+                for i = 1: 1: (length(obj.in.M_time_vec) - 2)
                     if size(obj.xyzVxyz,1) == 0
                         error("All the molecules are lost after the %d switching!", i-1)
                     end
 %                     fprintf("%d/%d\t%d\n",size(obj.xyzVxyz,1), obj.num_particles,i);
-                    for t = obj.myInput.M_time_vec(i):dt: obj.myInput.M_time_vec(i+1)
+                    for t = obj.in.M_time_vec(i):dt: obj.in.M_time_vec(i+1)
                         obj.xyzVxyz = obj.xyzVxyz + dxyzVxyz{mod(i, 2)+2*(~mod(i, 2))}(obj.xyzVxyz) * dt;
                     end
                     [obj.xyzVxyz,obj.ind_particles]= removeHitParticles(obj.xyzVxyz, obj.ind_particles );
@@ -159,7 +166,7 @@ function createParticles(obj,myInput_l)
             end
             obj.Snapshot('end decelerator',t(end), obj.xyzVxyz, obj.ind_particles)
             obj.TOF()
-            if obj.myInput.verbose
+            if obj.in.verbose
 
 %                 figure()
 %                 subplot(2, 2, 1)
@@ -177,13 +184,13 @@ function createParticles(obj,myInput_l)
               
             obj.Snapshotplot()
           
-            obj.xyzVxyz(:,1:3)=obj.xyzVxyz(:,1:3)+obj.xyzVxyz(:,4:6)*(obj.myInput.M_time_vec(end)-obj.myInput.M_time_vec(end-1));                                                            
+            obj.xyzVxyz(:,1:3)=obj.xyzVxyz(:,1:3)+obj.xyzVxyz(:,4:6)*(obj.in.M_time_vec(end)-obj.in.M_time_vec(end-1));                                                            
             figure();
             scatter(obj.xyzVxyz(:,1)*10^3, obj.xyzVxyz(:,4));  %scatter(x,y) creates a scatter plot with circular markers at the locations specified by the vectors x and y.
             xlabel('x-pos (mm)'); ylabel('v_x (m/s)');
             
             figure;
-            obj.arrival_time = t(end) - (obj.xyzVxyz(:,1) - obj.myInput.params.PHYS_length_dec - obj.myInput.params.PHYS_exit_to_detection)./(obj.xyzVxyz(:,4)) + obj.myInput.params.FLY_incoupling_time;
+            obj.arrival_time = t(end) - (obj.xyzVxyz(:,1) - obj.in.params.PHYS_length_dec - obj.in.params.PHYS_exit_to_detection)./(obj.xyzVxyz(:,4)) + obj.in.params.FLY_incoupling_time;
             histogram(obj.arrival_time, 100);xlabel('time(s)')
 
             figure;
@@ -201,42 +208,42 @@ function createParticles(obj,myInput_l)
         end
         
          %% Propagate particles, intergate using time intervals in M_time_vector, propagating all the molecules together
-         function propagateParticles_ode45(obj,myInput_l)
+         function propagateParticles_ode45(obj,in_l)
              % make local variables of interpolations improves running speed
              %a  bit
 
-             ax_norm_interpl= myInput_l.ax_norm_interpl;
-             ay_norm_interpl= myInput_l.ay_norm_interpl;
-             az_norm_interpl= myInput_l.az_norm_interpl;
+             ax_norm_interpl= in_l.ax_norm_interpl;
+             ay_norm_interpl= in_l.ay_norm_interpl;
+             az_norm_interpl= in_l.az_norm_interpl;
 
-             ax_norm_H_interpl = myInput_l.ax_norm_H_interpl;
-             ay_norm_H_interpl = myInput_l.ay_norm_H_interpl;
-             az_norm_H_interpl = myInput_l.az_norm_H_interpl;
+             ax_norm_H_interpl = in_l.ax_norm_H_interpl;
+             ay_norm_H_interpl = in_l.ay_norm_H_interpl;
+             az_norm_H_interpl = in_l.az_norm_H_interpl;
 
-             ax_neg_interpl = myInput_l.ax_neg_interpl;
-             ay_neg_interpl = myInput_l.ay_neg_interpl;
-             az_neg_interpl = myInput_l.az_neg_interpl;
+             ax_neg_interpl = in_l.ax_neg_interpl;
+             ay_neg_interpl = in_l.ay_neg_interpl;
+             az_neg_interpl = in_l.az_neg_interpl;
 
-             ax_neg_H_interpl = myInput_l.ax_neg_H_interpl;
-             ay_neg_H_interpl = myInput_l.ay_neg_H_interpl;
-             az_neg_H_interpl = myInput_l.az_neg_H_interpl;
+             ax_neg_H_interpl = in_l.ax_neg_H_interpl;
+             ay_neg_H_interpl = in_l.ay_neg_H_interpl;
+             az_neg_H_interpl = in_l.az_neg_H_interpl;
 
-             ax_pos_interpl = myInput_l.ax_pos_interpl;
-             ay_pos_interpl = myInput_l.ay_pos_interpl;
-             az_pos_interpl = myInput_l.az_pos_interpl;
+             ax_pos_interpl = in_l.ax_pos_interpl;
+             ay_pos_interpl = in_l.ay_pos_interpl;
+             az_pos_interpl = in_l.az_pos_interpl;
              
-             ax_pos_H_interpl = myInput_l.ax_pos_H_interpl;
-             ay_pos_H_interpl = myInput_l.ay_pos_H_interpl;
-             az_pos_H_interpl = myInput_l.az_pos_H_interpl;
+             ax_pos_H_interpl = in_l.ax_pos_H_interpl;
+             ay_pos_H_interpl = in_l.ay_pos_H_interpl;
+             az_pos_H_interpl = in_l.az_pos_H_interpl;
 
-             M_time_vec_l = myInput_l.M_time_vec;
+             M_time_vec_l = in_l.M_time_vec;
 
 
 
-            
+            % THIS FUNCTION IS DEFINED TWICE!!! DOES IT MAKES ANY SENSE?
             % a function that remove the lost molecules
         function [xyzVxyz,ind_particles] = removeHitParticles(xyzVxyz,ind_particles)
-                hit_indices = xyzVxyz(:,1) < myInput_l.params.PHYS_length_dec & (abs(xyzVxyz(:,2)) > myInput_l.params.PHYS_seperation_pins/2 | abs(xyzVxyz(:,3)) > myInput_l.params.PHYS_seperation_pins/2);
+                hit_indices = xyzVxyz(:,1) < in_l.params.PHYS_length_dec & (abs(xyzVxyz(:,2)) > in_l.params.PHYS_seperation_pins/2 | abs(xyzVxyz(:,3)) > in_l.params.PHYS_seperation_pins/2);
                 xyzVxyz = xyzVxyz(~hit_indices,:);
                 ind_particles = ind_particles(~hit_indices);
                 hit_indices = (abs(xyzVxyz(:,1) - xyzVxyz(1,1)) < 2* 5.5e-3); % separated the cut of the fish in x into two lines in order to make indexing work and also to be sure its correct
@@ -247,7 +254,7 @@ function createParticles(obj,myInput_l)
             % first propagate to entrance of decelerator
             obj.xyzVxyz = obj.xyzVxyz_0;
             obj.ind_particles = transpose(1:size(obj.xyzVxyz,1));
-            obj.xyzVxyz(:,1:3) = obj.xyzVxyz(:,1:3) + obj.xyzVxyz(:,4:6) * myInput_l.params.FLY_incoupling_time;
+            obj.xyzVxyz(:,1:3) = obj.xyzVxyz(:,1:3) + obj.xyzVxyz(:,4:6) * in_l.params.FLY_incoupling_time;
             [obj.xyzVxyz,obj.ind_particles]= removeHitParticles(obj.xyzVxyz, obj.ind_particles );% select those that can enter dec
            
 
@@ -258,7 +265,7 @@ function createParticles(obj,myInput_l)
             num_par = [];
             obj.output={};
             obj.Snapshot("start decelerator", M_time_vec_l(1),obj.xyzVxyz, obj.ind_particles)
-            if myInput_l.params.FLY_focusing_mode_bool % focusing mode
+            if in_l.params.FLY_focusing_mode_bool % focusing mode
                 dydt_array = {@(t,y) dydtNormVerticalOn(t,y,size(obj.xyzVxyz,1)),...
                               @(t,y) dydtNegHorizontalOn(t,y,size(obj.xyzVxyz,1)),...
                               @(t,y) dydtNormHorizontalOn(t,y,size(obj.xyzVxyz,1)),...
@@ -296,7 +303,7 @@ function createParticles(obj,myInput_l)
             obj.Snapshot('end decelerator',t(end), obj.xyzVxyz, obj.ind_particles)
 
             obj.TOF()  
-            if myInput_l.verbose
+            if in_l.verbose
 
 %                 figure()
 %                 subplot(2, 2, 1)
@@ -319,7 +326,7 @@ function createParticles(obj,myInput_l)
             xlabel('x-pos (mm)'); ylabel('v_x (m/s)');
             
             figure;
-            obj.arrival_time = t(end) - (obj.xyzVxyz(:,1) - myInput_l.params.PHYS_length_dec - myInput_l.params.PHYS_exit_to_detection)./(obj.xyzVxyz(:,4)) + myInput_l.params.FLY_incoupling_time;
+            obj.arrival_time = t(end) - (obj.xyzVxyz(:,1) - in_l.params.PHYS_length_dec - in_l.params.PHYS_exit_to_detection)./(obj.xyzVxyz(:,4)) + in_l.params.FLY_incoupling_time;
             histogram(obj.arrival_time, 100);xlabel('time(s)')
             end
 
@@ -356,26 +363,26 @@ function createParticles(obj,myInput_l)
         
         %% Obtain the acceleration by interpolation
         function dydt = dydtNormVerticalOn(obj,t,y,n)
-           dydt = [y(3*n+1:end); obj.myInput.ax_norm_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); [0;obj.myInput.ay_norm_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]; [0; obj.myInput.az_norm_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]]; 
+           dydt = [y(3*n+1:end); obj.in.ax_norm_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); [0;obj.in.ay_norm_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]; [0; obj.in.az_norm_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]]; 
         end
         
         function dydt = dydtNormHorizontalOn(obj,t,y,n)
-           dydt = [y(3*n+1:end); obj.myInput.ax_norm_H_interpl(y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); [0;-obj.myInput.az_norm_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]; [0;obj.myInput.ay_norm_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]]; 
+           dydt = [y(3*n+1:end); obj.in.ax_norm_H_interpl(y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); [0;-obj.in.az_norm_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]; [0;obj.in.ay_norm_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]]; 
         end
         
         function dydt = dydtNegVerticalOn(obj,t,y,n)
-            dydt = [y(3*n+1:end); obj.myInput.ax_neg_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); [0; obj.myInput.ay_neg_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]; [0; obj.myInput.az_neg_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]];
+            dydt = [y(3*n+1:end); obj.in.ax_neg_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); [0; obj.in.ay_neg_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]; [0; obj.in.az_neg_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]];
         end
         
         function dydt = dydtNegHorizontalOn(obj,t,y,n)
-            dydt = [y(3*n+1:end); obj.myInput.ax_neg_H_interpl(y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); [0;-obj.myInput.az_neg_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]; [0;obj.myInput.ay_neg_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]]; 
+            dydt = [y(3*n+1:end); obj.in.ax_neg_H_interpl(y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); [0;-obj.in.az_neg_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]; [0;obj.in.ay_neg_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]]; 
         end
 
         function dydt = dydtPosVerticalOn(obj,t,y,n)
-            dydt = [y(3*n+1:end); obj.myInput.ax_pos_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); [0; obj.myInput.ay_pos_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]; [0; obj.myInput.az_pos_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]];
+            dydt = [y(3*n+1:end); obj.in.ax_pos_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); [0; obj.in.ay_pos_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]; [0; obj.in.az_pos_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]];
         end 
         function dydt = dydtPosHorizontalOn(obj,t,y,n)
-            dydt = [y(3*n+1:end); obj.myInput.ax_pos_H_interpl(y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); [0;-obj.myInput.az_pos_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]; [0;obj.myInput.ay_pos_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]]; 
+            dydt = [y(3*n+1:end); obj.in.ax_pos_H_interpl(y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); [0;-obj.in.az_pos_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]; [0;obj.in.ay_pos_H_interpl(y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]]; 
         end
 
         
@@ -384,8 +391,8 @@ function createParticles(obj,myInput_l)
             % a function that remove the lost molecules
             function xyzVxyz = removeHitParticles(y)
                 xyzVxyz = reshape(y(end,:), [], 6);
-                remaining_indices = ((xyzVxyz(:,1) < obj.myInput.params.PHYS_length_dec & abs(xyzVxyz(:,2)) < obj.myInput.params.PHYS_seperation_pins/2 & abs(xyzVxyz(:,3)) < obj.myInput.params.PHYS_seperation_pins/2)...
-                                    | xyzVxyz(:,1) >= obj.myInput.params.PHYS_length_dec) & abs(xyzVxyz(:,1) - xyzVxyz(1,1)) < 2*obj.myInput.params.PHYS_distance_stages;
+                remaining_indices = ((xyzVxyz(:,1) < obj.in.params.PHYS_length_dec & abs(xyzVxyz(:,2)) < obj.in.params.PHYS_seperation_pins/2 & abs(xyzVxyz(:,3)) < obj.in.params.PHYS_seperation_pins/2)...
+                                    | xyzVxyz(:,1) >= obj.in.params.PHYS_length_dec) & abs(xyzVxyz(:,1) - xyzVxyz(1,1)) < 2*obj.in.params.PHYS_distance_stages;
                 xyzVxyz = xyzVxyz(remaining_indices,:);
 %                 size(remaining_indices)
 %                 size(y)
@@ -410,7 +417,7 @@ function createParticles(obj,myInput_l)
             
             % first propagate to entrance of decelerator
             obj.xyzVxyz = obj.xyzVxyz_0;
-            obj.xyzVxyz(:,1:3) = obj.xyzVxyz(:,1:3) + obj.xyzVxyz(:,4:6) * obj.myInput.params.FLY_incoupling_time;
+            obj.xyzVxyz(:,1:3) = obj.xyzVxyz(:,1:3) + obj.xyzVxyz(:,4:6) * obj.in.params.FLY_incoupling_time;
 %             obj.xyzVxyz= removeHitParticles(obj.xyzVxyz);% select those that can enter dec
 
             
@@ -419,7 +426,7 @@ function createParticles(obj,myInput_l)
 %             line_temp = 0;
             
             opts = odeset('RelTol',1e-6,'AbsTol',1e-6);
-            if obj.myInput.params.FLY_focusing_mode_bool % focusing mode
+            if obj.in.params.FLY_focusing_mode_bool % focusing mode
                 dydt_array = {@(t,y) obj.dydtNormVerticalOn(t,y,size(obj.xyzVxyz,1)),...
                               @(t,y) obj.dydtNegHorizontalOn(t,y,size(obj.xyzVxyz,1)),...
                               @(t,y) obj.dydtNormHorizontalOn(t,y,size(obj.xyzVxyz,1)),...
@@ -429,35 +436,35 @@ function createParticles(obj,myInput_l)
                               @(t,y) obj.dydtNormHorizontalOn(t,y,size(obj.xyzVxyz,1)),...
                               @(t,y) obj.dydtNegVerticalOn(t,y,size(obj.xyzVxyz,1))};
                  
-                for i = 1:1:(length(obj.myInput.M_time_vec) - 1)
+                for i = 1:1:(length(obj.in.M_time_vec) - 1)
                     if size(obj.xyzVxyz,1) == 0
                         error("All the molecules are lost after the %d switching!",i-1)
                     end
 %                     fprintf("%d/%d\t%d\n",size(obj.xyzVxyz,1), obj.num_particles, i);
-%                     [t, y] = ode45(dydt_array{mod(i, 8)+8*(~mod(i, 8))}, obj.myInput.M_time_vec(i):1e-6:obj.myInput.M_time_vec(i+1), reshape(obj.xyzVxyz, [], 1), opts);
-                    [t, y] = ode45(dydt_array{mod(i, 8)+8*(~mod(i, 8))}, [obj.myInput.M_time_vec(i), (obj.myInput.M_time_vec(i) + obj.myInput.M_time_vec(i+1))/2, obj.myInput.M_time_vec(i+1)], reshape(obj.xyzVxyz, [], 1), opts);
+%                     [t, y] = ode45(dydt_array{mod(i, 8)+8*(~mod(i, 8))}, obj.in.M_time_vec(i):1e-6:obj.in.M_time_vec(i+1), reshape(obj.xyzVxyz, [], 1), opts);
+                    [t, y] = ode45(dydt_array{mod(i, 8)+8*(~mod(i, 8))}, [obj.in.M_time_vec(i), (obj.in.M_time_vec(i) + obj.in.M_time_vec(i+1))/2, obj.in.M_time_vec(i+1)], reshape(obj.xyzVxyz, [], 1), opts);
 
-                    obj.traj_time = [obj.traj_time; t + obj.myInput.params.FLY_incoupling_time];
+                    obj.traj_time = [obj.traj_time; t + obj.in.params.FLY_incoupling_time];
                     obj.xyzVxyz= removeHitParticles(y);
                 end
                 
             else    % normal mode
                 dydt_array = {@(t,y) obj.dydtNormVerticalOn(t,y,size(obj.xyzVxyz,1)),...
                               @(t,y) obj.dydtNormHorizontalOn(t,y,size(obj.xyzVxyz,1))};
-                for i = 1: 1: (length(obj.myInput.M_time_vec) - 1)
+                for i = 1: 1: (length(obj.in.M_time_vec) - 1)
                     if size(obj.xyzVxyz,1) == 0
                         error("All the molecules are lost after the %d switching!", i-1)
                     end
                     fprintf("%d/%d\t%d\n",size(obj.xyzVxyz,1), obj.num_particles,i);
-                    [t, y] = ode45(dydt_array{mod(i, 2)+2*(~mod(i, 2))}, [obj.myInput.M_time_vec(i), obj.myInput.M_time_vec(i+1)], reshape(obj.xyzVxyz, [], 1), opts);
-%                     [t, y] = ode45(dydt_array{mod(i, 2)+2*(~mod(i, 2))}, [obj.myInput.M_time_vec(i), (obj.myInput.M_time_vec(i) + obj.myInput.M_time_vec(i+1))/2, obj.myInput.M_time_vec(i+1)], reshape(obj.xyzVxyz, [], 1), opts);
+                    [t, y] = ode45(dydt_array{mod(i, 2)+2*(~mod(i, 2))}, [obj.in.M_time_vec(i), obj.in.M_time_vec(i+1)], reshape(obj.xyzVxyz, [], 1), opts);
+%                     [t, y] = ode45(dydt_array{mod(i, 2)+2*(~mod(i, 2))}, [obj.in.M_time_vec(i), (obj.in.M_time_vec(i) + obj.in.M_time_vec(i+1))/2, obj.in.M_time_vec(i+1)], reshape(obj.xyzVxyz, [], 1), opts);
                     
                     obj.traj_time = [obj.traj_time; t];
                     obj.xyzVxyz= removeHitParticles(y);
                 end
             end
 
-            obj.arrival_time = t(end) - (obj.xyzVxyz(:,1) - obj.myInput.params.PHYS_length_dec - obj.myInput.params.PHYS_exit_to_detection)./(obj.xyzVxyz(:,4)) + obj.myInput.params.FLY_incoupling_time;
+            obj.arrival_time = t(end) - (obj.xyzVxyz(:,1) - obj.in.params.PHYS_length_dec - obj.in.params.PHYS_exit_to_detection)./(obj.xyzVxyz(:,4)) + obj.in.params.FLY_incoupling_time;
             
         end
         
@@ -529,9 +536,9 @@ function createParticles(obj,myInput_l)
             tof_profile = zeros(num_bins,1);
             
             
-            obj.arrival_time = obj.arrival_time(abs(obj.xyzVxyz(:,2)) < obj.myInput.params.FLY_detection_laser_diameter/2 & abs(obj.xyzVxyz(:,3)) < 2e-3);
-            bin_begin_each_particle = int16((obj.arrival_time - obj.myInput.params.FLY_detection_laser_diameter/2/obj.xyzVxyz(:,4) - min_time)/binsize + 0.5);
-            bin_end_each_particle =int16((obj.arrival_time + obj.myInput.params.FLY_detection_laser_diameter/2/obj.xyzVxyz(:,4) - min_time)/binsize + 0.5);
+            obj.arrival_time = obj.arrival_time(abs(obj.xyzVxyz(:,2)) < obj.in.params.FLY_detection_laser_diameter/2 & abs(obj.xyzVxyz(:,3)) < 2e-3);
+            bin_begin_each_particle = int16((obj.arrival_time - obj.in.params.FLY_detection_laser_diameter/2/obj.xyzVxyz(:,4) - min_time)/binsize + 0.5);
+            bin_end_each_particle =int16((obj.arrival_time + obj.in.params.FLY_detection_laser_diameter/2/obj.xyzVxyz(:,4) - min_time)/binsize + 0.5);
             
             time = min_time:binsize:max_time;
             for i = 1: length(bin_begin_each_particle)
@@ -550,23 +557,23 @@ function createParticles(obj,myInput_l)
         % redone with laser volume and snapshot of xyzVxyz when snych. molecule is at detection point
         function TOF(obj) 
             t_steps_TOF = 1e-6; %time srteps for gfree propagation one smaller than t_profile
-            % t_profile = (obj.myInput.M_time_vec(end-1) + t_steps_TOF ):t_steps_TOF:(obj.myInput.M_time_vec(end)+1e-3); % start 1us after, go on for
-            t_profile = t_steps_TOF : t_steps_TOF : (obj.myInput.M_time_vec(end) - obj.myInput.M_time_vec(end-1) + 1e-3); % start 1us after, go on for 1 ms
+            % t_profile = (obj.in.M_time_vec(end-1) + t_steps_TOF ):t_steps_TOF:(obj.in.M_time_vec(end)+1e-3); % start 1us after, go on for
+            t_profile = t_steps_TOF : t_steps_TOF : (obj.in.M_time_vec(end) - obj.in.M_time_vec(end-1) + 1e-3); % start 1us after, go on for 1 ms
             
-            x_laser = obj.myInput.params.PHYS_length_dec + obj.myInput.params.PHYS_exit_to_detection;  % x coordinate laser center
+            x_laser = obj.in.params.PHYS_length_dec + obj.in.params.PHYS_exit_to_detection;  % x coordinate laser center
             h_laser = 2e-3; %half of height laser volume to make check since height is 4 mm but goes from y=-2mm to y=2mm
-            r_laser = obj.myInput.params.FLY_detection_laser_diameter/2; % radius of laser we model as cylinder
+            r_laser = obj.in.params.FLY_detection_laser_diameter/2; % radius of laser we model as cylinder
             
             obj.TOF_save = zeros(length(t_profile), 2); % matrix wher number of molecules in laser volume will be saved with the corresponding time
-            obj.TOF_save(:, 1) = t_profile + obj.myInput.M_time_vec(end-1);
+            obj.TOF_save(:, 1) = t_profile + obj.in.M_time_vec(end-1);
             output_xyzVxyz = {};
 
             % propagate till synch molecules
             xyzVxyz_TOF = obj.xyzVxyz; % local copy not to modify class variable
-            xyzVxyz_TOF(:, 1:3) = obj.xyzVxyz(:, 1:3) + obj.xyzVxyz(:,4:6)*(obj.myInput.M_time_vec(end) - obj.myInput.M_time_vec(end-1)); 
+            xyzVxyz_TOF(:, 1:3) = obj.xyzVxyz(:, 1:3) + obj.xyzVxyz(:,4:6)*(obj.in.M_time_vec(end) - obj.in.M_time_vec(end-1)); 
             in_volume =  abs( xyzVxyz_TOF(:,3) ) <= h_laser & sqrt((xyzVxyz_TOF(:,1)-x_laser).^2 + (xyzVxyz_TOF(:,2)).^2) <= r_laser;
             xyzVxyz_TOF = xyzVxyz_TOF(in_volume, :);
-            obj.Snapshot('synch. molecule detection', obj.myInput.M_time_vec(end), xyzVxyz_TOF,[]);
+            obj.Snapshot('synch. molecule detection', obj.in.M_time_vec(end), xyzVxyz_TOF,[]);
 
 
             for i=1:length(t_profile)
@@ -601,7 +608,7 @@ function createParticles(obj,myInput_l)
                 end
             end
 
-            obj.Snapshot('end decc. detected (safe)',obj.myInput.M_time_vec(end-1), obj.xyzVxyz(logical(xyzVxyz_in_volume),:), []) % here time is chosen at end decc. since pos. and vel. xyzVxyz correspond to this time
+            obj.Snapshot('end decc. detected (safe)',obj.in.M_time_vec(end-1), obj.xyzVxyz(logical(xyzVxyz_in_volume),:), []) % here time is chosen at end decc. since pos. and vel. xyzVxyz correspond to this time
            
             compare=output_xyzVxyz{1,1}; % idea below is to compare velocities of all particles detected around the synch molecule se above if statement such that
                                          % we get a good estiamte for the
@@ -611,9 +618,9 @@ function createParticles(obj,myInput_l)
                 compare= [compare;output_xyzVxyz{1,j}(~row_a,:)];  % add only the rows which were not yet present in compare to not count them twice
             end
             row_end = ismember(obj.xyzVxyz(:,4:end),compare(:,4:end),'rows');
-            obj.Snapshot('end decc, detected', obj.myInput.M_time_vec(end-1),obj.xyzVxyz(row_end,:),[])
+            obj.Snapshot('end decc, detected', obj.in.M_time_vec(end-1),obj.xyzVxyz(row_end,:),[])
 %% now there is fucntion we can call that does that for us plot_TOF_laser
-%             if obj.myInput.verbose
+%             if obj.in.verbose
 %                 figure('Name','TOF')
 %                 plot(obj.TOF_save(:,1)*1e6,obj.TOF_save(:,2))     
 %                 xlabel('time (/mu s'); ylabel('# particles in laser volume');            
@@ -799,10 +806,10 @@ function createParticles(obj,myInput_l)
         end
 
         function plot_TOF_laser(obj)
-            plot(obj.TOF_save(:,1)*1e6+obj.myInput.params.FLY_incoupling_time*1e6,obj.TOF_save(:,2))
+            plot(obj.TOF_save(:,1)*1e6+obj.in.params.FLY_incoupling_time*1e6,obj.TOF_save(:,2))
             xlabel('time (/mu s'); ylabel('# particles in laser volume');
             ylim([0,max(obj.TOF_save(:,2)+2)]);
-            xlim([obj.TOF_save(1,1)*1e6+obj.myInput.params.FLY_incoupling_time*1e6,obj.TOF_save(end,1)*1e6+obj.myInput.params.FLY_incoupling_time*1e6]);
+            xlim([obj.TOF_save(1,1)*1e6+obj.in.params.FLY_incoupling_time*1e6,obj.TOF_save(end,1)*1e6+obj.in.params.FLY_incoupling_time*1e6]);
         end
 
         function saveWorkspace(obj)
@@ -810,12 +817,12 @@ function createParticles(obj,myInput_l)
 %                 obj   double
 %                 options.file_Name  string = dtaeTime('now')
 %             end
-            params = obj.myInput.params;  % create local varibale to safe otherwise matlab complains
+            params = obj.in.params;  % create local varibale to safe otherwise matlab complains
             TOF_save_l = obj.TOF_save;
             output_l= obj.output;
-            electrode_sequences = obj.myInput.electrode_sequences;
-            filename = append('./output/',regexprep(datestr(datetime('now')),' ','_'),'_',num2str(obj.myInput.params.FLY_voltage_on_electrodes),'kV','_','FM',num2str(obj.myInput.params.FLY_focusing_mode_bool),'_',num2str(obj.myInput.params.FLY_target_velocity));
-            fprintf(append('saving output, TOF_sa  ve, electrode sequences, myInput.params to',filename))
+            electrode_sequences = obj.in.electrode_sequences;
+            filename = append('./output/',regexprep(datestr(datetime('now')),' ','_'),'_',num2str(obj.in.params.FLY_voltage_on_electrodes),'kV','_','FM',num2str(obj.in.params.FLY_focusing_mode_bool),'_',num2str(obj.in.params.FLY_target_velocity));
+            fprintf(append('saving output, TOF_sa  ve, electrode sequences, in.params to',filename))
             save(filename,'TOF_save_l', 'output_l','electrode_sequences', 'params');
             
         end

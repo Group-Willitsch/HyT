@@ -123,6 +123,7 @@ classdef InputParameters < handle
 
             % load the acceleration fields
             obj.loadAccelerationFields();
+            obj.InterpolateAccField()
             
             % load Fortran Time sequence. 
             if obj.fortran_seq_bool
@@ -139,7 +140,7 @@ classdef InputParameters < handle
                 obj.generateMatlabTimeSequence();
             end
 
-
+            %%% WTF WHY IS THIS PIECE OF CODE IN THE CONSTRUCTOR?????
             [l,~]=size(obj.M_trigger_pattern);
             obj.electrode_sequences=zeros(l,4);
             pattern=char(obj.M_trigger_pattern); % ugly code to turn M_pattern into array of doubles such that we can compare the pattern such that we get a string of ones and zeros
@@ -148,7 +149,7 @@ classdef InputParameters < handle
             obj.electrode_sequences(:,2)= double(pattern== 100 | pattern==1100)+3; % we add numbers to put the on same plot but still be able to see each individual sequence
             obj.electrode_sequences(:,3)= double(pattern== 10 | pattern==11)+5; % to get meaning of the numbers b1000=1000, b1100=1100, b0011= 11, b0010=10, b0001=1
             obj.electrode_sequences(:,4)= double(pattern== 1 | pattern==11)+7;            
-            obj.InterpolateAccField()
+
 
         end
 
@@ -160,28 +161,14 @@ classdef InputParameters < handle
         %% Load the acceleration fields
         % (TODO: maybe the negative one can be obtained via a flip of the postive
         % one)
+        % updated to load directly the .mat files
         function loadAccelerationFields(obj)           
             if ~obj.params.FLY_focusing_mode_bool % load normal fields
                 if ~isempty(obj.ax_norm)
                     [obj.ax_norm, obj.ay_norm, obj.az_norm] = deal([],[],[]);
                 end    
                 fprintf('Loading normal mode fields ...\t')
-                fieldFolder = '../dec_Norm_' + strrep( string(obj.params.FLY_voltage_on_electrodes), '.', 'p') + 'kV/output/';
-                paren = @(x, varargin) x(varargin{:}); % in-line function to reshape a matrix without a temporary variable
-                obj.ax_norm = permute( reshape( table2array( paren( ...
-                    readtable(fieldFolder + 'outax.dat'), ':', 4) ), ...
-                    [obj.params.SIMION_nj, obj.params.SIMION_nk, obj.params.SIMION_ni]), [3 2 1]);
-                obj.ax_norm=obj.ax_norm(21:131,:,:); %reshape martrix from n_begin(21)-n_end(131) in x direction
-
-                obj.ay_norm = permute( reshape( table2array( paren( ...
-                    readtable(fieldFolder + 'outay.dat'), ':', 4) ), ...
-                    [obj.params.SIMION_nj, obj.params.SIMION_nk, obj.params.SIMION_ni]), [3 2 1]);
-                obj.ay_norm=obj.ay_norm(21:131,:,:);
-
-                obj.az_norm = permute( reshape( table2array( paren( ...
-                    readtable(fieldFolder + 'outaz.dat'), ':', 4) ), ...
-                    [obj.params.SIMION_nj, obj.params.SIMION_nk, obj.params.SIMION_ni]), [3 2 1]);
-                obj.az_norm=obj.az_norm(21:131,:,:);
+                
                 % set the focusing mode fields to empty. Necessary if you
                 % first load focusing mode fields and after you re-load
                 % normal mode fields.
@@ -189,120 +176,62 @@ classdef InputParameters < handle
                     [obj.ax_pos, obj.ax_neg, obj.ay_pos, obj.ay_neg, obj.az_pos, obj.az_neg] = deal([], [], [], [], [], []);
                 end
                 
+                % load fields from the .mat files in the acc folder
+                filename = './acc/dec_norm_' + strrep( string( obj.params.FLY_voltage_on_electrodes ), '.', 'p') + 'kV/';
+                load(filename + 'a_norm') % load them in local workspace
+                obj.ax_norm = ax_norm; obj.ay_norm = ay_norm; obj.az_norm = ax_norm;
+                clearvars ax_norm ay_norm az_norm % ugly: clear them from local workspace
+
                 % symmetrize the y, z fields
                  obj.ay_norm = (obj.ay_norm - flip(obj.ay_norm, 2))/2;
                  obj.az_norm = (obj.az_norm - flip(obj.az_norm, 3))/2;
                 
             else % load focusing mode fields
                 fprintf('Loading focusing mode accelerations...')
-                fieldFolder = '../dec_FM_' + strrep( string(obj.params.FLY_voltage_on_electrodes), '.', 'p') + 'kV/output/';
-%                fieldFolder = strrep(fieldFolder, '.', 'p'); % replace dot with p
+
                 if ~isempty(obj.ax_pos)
                     [obj.ax_pos, obj.ax_neg, obj.ay_pos, obj.ay_neg, obj.az_pos, obj.az_neg] = deal([], [], [], [], [], []);
                 end
-                 
-                
-                % follows ugly but fast code to read all the acc files. In
-                % steps:
-                % out = readtable('./inputs/outax_fm_neg.dat');
-                % fields = table2array(out(:, 4));
-                % acczyx = reshape(fields, [41, 41, 151]);
-                % accxyz = permute(acczyx, [3 2 1]);
-                paren = @(x, varargin) x(varargin{:}); % in-line function to reshape a matrix without a temporary variable
-              
-                % Here again ax, ay, az were reshapded to n-begin-n-end
-                % (21-131)
-                obj.ax_norm = permute( reshape( table2array( paren( ...
-                    readtable(fieldFolder + 'outax.dat'), ':', 4) ), ...
-                    [obj.params.SIMION_nj, obj.params.SIMION_nk, obj.params.SIMION_ni]), [3 2 1]);
-                obj.ax_norm=obj.ax_norm(21:131,:,:);
+                filename = './acc/dec_foc_' + strrep( string(obj.params.FLY_voltage_on_electrodes), '.', 'p') + 'kV/';
+                load(filename + 'a_norm'); load(filename + 'a_pos'); load(filename + 'a_neg'); 
+                obj.ax_norm = ax_norm; obj.ay_norm = ay_norm; obj.az_norm = ax_norm;
+                obj.ax_pos = ax_pos; obj.ay_pos = ay_pos; obj.az_pos = ax_pos;
+                obj.ax_neg = ax_neg; obj.ay_neg = ay_neg; obj.az_neg = ax_neg;
 
-
-                obj.ax_pos = permute( reshape( table2array( paren( ...
-                    readtable(fieldFolder + 'outax_fm_pos.dat'), ':', 4) ), ...
-                    [obj.params.SIMION_nj, obj.params.SIMION_nk, obj.params.SIMION_ni]), [3 2 1]);
-                obj.ax_pos=obj.ax_pos(21:131,:,:);
-
-
-                obj.ax_neg = permute( reshape( table2array( paren( ...
-                    readtable(fieldFolder + 'outax_fm_neg.dat'), ':', 4) ), ...
-                    [obj.params.SIMION_nj, obj.params.SIMION_nk, obj.params.SIMION_ni]), [3 2 1]);
-                obj.ax_neg=obj.ax_neg(21:131,:,:);
-
-
-                obj.ay_norm = permute( reshape( table2array( paren( ...
-                    readtable(fieldFolder + 'outay.dat'), ':', 4) ), ...
-                    [obj.params.SIMION_nj, obj.params.SIMION_nk, obj.params.SIMION_ni]), [3 2 1]);
-                obj.ay_norm=obj.ay_norm(21:131,:,:);
-
-                obj.ay_pos = permute( reshape( table2array( paren( ...
-                    readtable(fieldFolder + 'outay_fm_pos.dat'), ':', 4) ), ...
-                    [obj.params.SIMION_nj, obj.params.SIMION_nk, obj.params.SIMION_ni]), [3 2 1]);
-                obj.ay_pos=obj.ay_pos(21:131,:,:);
-
-                obj.ay_neg = permute( reshape( table2array( paren( ...
-                    readtable(fieldFolder + 'outay_fm_neg.dat'), ':', 4) ), ...
-                    [obj.params.SIMION_nj, obj.params.SIMION_nk, obj.params.SIMION_ni]), [3 2 1]);
-                obj.ay_neg=obj.ay_neg(21:131,:,:);
-
-
-                obj.az_norm = permute( reshape( table2array( paren( ...
-                    readtable(fieldFolder + 'outaz.dat'), ':', 4) ), ...
-                    [obj.params.SIMION_nj, obj.params.SIMION_nk, obj.params.SIMION_ni]), [3 2 1]);
-                obj.az_norm=obj.az_norm(21:131,:,:);
-
-               
-                obj.az_pos = permute( reshape( table2array( paren( ...
-                    readtable(fieldFolder + 'outaz_fm_pos.dat'), ':', 4) ), ...
-                    [obj.params.SIMION_nj, obj.params.SIMION_nk, obj.params.SIMION_ni]), [3 2 1]);
-                obj.az_pos=obj.az_pos(21:131,:,:);
-
-                obj.az_neg = permute( reshape( table2array( paren( ...
-                    readtable(fieldFolder + 'outaz_fm_neg.dat'), ':', 4) ), ...
-                    [obj.params.SIMION_nj, obj.params.SIMION_nk, obj.params.SIMION_ni]), [3 2 1]);
-                obj.az_neg=obj.az_neg(21:131,:,:);
-                clearvars fieldFolder
-                
+                clearvars ax_norm ax_pos ax_neg ay_norm ay_neg ay_pos az_norm az_pos az_neg
                 % symmetrize the y, z fields
                  obj.ay_norm = (obj.ay_norm - flip(obj.ay_norm, 2))/2;
                  obj.az_norm = (obj.az_norm - flip(obj.az_norm, 3))/2;
-
-% %            
-% %                  also for focusing mode
+                  % also for focusing mode
                  obj.ay_pos = (obj.ay_pos + flip(obj.ay_neg, 3))/2;
                  obj.ay_neg = flip( obj.ay_pos, 3);
-
                  obj.az_pos = (obj.az_pos - flip(obj.az_neg, 3))/2;
                  obj.az_neg = - flip(obj.az_pos, 3);
-
-%                 if ~isempty(obj.ax_norm)
-%                     [obj.ax_norm, obj.ay_norm, obj.az_norm] = deal([],[],[]);
-%                 end
-
-        
-                
-                
             end % when calling this function we have to also call interpolateAccField again in order 
             fprintf('\tloaded\n')
         end
         
         %% Interpolate acceleration field
         function InterpolateAccField(obj)
-            num_grids_x = 111 + 110 * 122 + 20;
+            fprintf('Interpolating accelerations fields...\t\t')
+            tic;
+            num_grids_x = 111 + 110 * 122 + 20; % AT LEAST 123, MAYBE 124??
             num_grids_y = 41 + 20;
             num_grids_z = 41 + 20;
             gridded_x = linspace(-10/obj.params.SIMION_grid_units_p_meter, obj.params.PHYS_length_dec + 10/obj.params.SIMION_grid_units_p_meter, num_grids_x);
-            gridded_y = linspace(-10/obj.params.SIMION_grid_units_p_meter-obj.params.PHYS_seperation_pins/2.0, obj.params.PHYS_seperation_pins/2.0 + 10/obj.params.SIMION_grid_units_p_meter, num_grids_y);
-            gridded_z =	linspace(-10/obj.params.SIMION_grid_units_p_meter-obj.params.PHYS_seperation_pins/2.0, obj.params.PHYS_seperation_pins/2.0 + 10/obj.params.SIMION_grid_units_p_meter, num_grids_z);
+            gridded_y = linspace(-10/obj.params.SIMION_grid_units_p_meter - obj.params.PHYS_seperation_pins/2.0, obj.params.PHYS_seperation_pins/2.0 + 10/obj.params.SIMION_grid_units_p_meter, num_grids_y);
+            gridded_z =	linspace(-10/obj.params.SIMION_grid_units_p_meter - obj.params.PHYS_seperation_pins/2.0, obj.params.PHYS_seperation_pins/2.0 + 10/obj.params.SIMION_grid_units_p_meter, num_grids_z);
 
             obj.ax_norm_extended = zeros(num_grids_x, num_grids_y, num_grids_z); %Vertical ones
             obj.ay_norm_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
             obj.az_norm_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
             
-            
-            obj.ax_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.ax_norm, flip(-obj.ax_norm(1:109,:,:),1)), 61, 1, 1), obj.ax_norm);  % before  obj.ax_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.ax_norm, flip(-obj.ax_norm(22:130,:,:),1)), 61, 1, 1), obj.ax_norm);
-            obj.ay_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.ay_norm, flip(obj.ay_norm(1:109,:,:),1)), 61, 1, 1), obj.ay_norm);
-            obj.az_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.az_norm, flip(obj.az_norm(1:109,:,:),1)), 61, 1, 1), obj.az_norm);
+            % WHY 109??? Should start normally from 110
+            % why is the extra 123th pulse added at the end? Shoudlnt' it
+            % be added at the beggining? 
+            obj.ax_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat( cat(1, obj.ax_norm, flip( -obj.ax_norm(1:109,:,:), 1) ), 61, 1, 1), obj.ax_norm);  
+            obj.ay_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat( cat(1, obj.ay_norm, flip( obj.ay_norm(1:109,:,:), 1) ), 61, 1, 1), obj.ay_norm);
+            obj.az_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat( cat(1, obj.az_norm, flip( obj.az_norm(1:109,:,:), 1) ), 61, 1, 1), obj.az_norm);
             obj.ax_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ax_norm_extended,'linear','linear');
             obj.ay_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_norm_extended,'linear','linear');
             obj.az_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.az_norm_extended,'linear','linear');
@@ -358,6 +287,8 @@ classdef InputParameters < handle
                 obj.ay_pos_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_pos_H_extended,'linear','linear');
                 obj.az_pos_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.az_pos_H_extended,'linear','linear');
             end
+            el_time = toc;
+            fprintf('done in %d s\n', el_time)
         end
         
 
@@ -429,11 +360,7 @@ classdef InputParameters < handle
         % (decelerator) coordinate of the synchronous molecules, which can
         % be quite usefull later on in the full simulation
 
-        function [simulated_target_vel] = generateMatlabTimeSequence(obj, verbose)
-            % verbose is optional argument to plot the pattern=char(obj.M_trigger_pattern); % ugly code to turn M_pattern into array of doubles such that we can compare the pattern such that we get a string of ones and zeros
-            if nargin == 1 
-                verbose = obj.verbose; % set to default
-            end
+        function [simulated_target_vel] = generateMatlabTimeSequence(obj)
             fprintf('Generating Matlab time sequence...');
 
             % 111 pops out from?
@@ -453,11 +380,11 @@ classdef InputParameters < handle
            % start integration
             use_ode_solver_bool = true;
             tic;
-            if use_ode_solver_bool
+            if use_ode_solver_bool % use ode45 from Matlab
                 opts = odeset('RelTol', 1e-8, 'AbsTol', 1e-8, 'Events', @(t,x) EventsFcn(t,x));
                 [obj.M_synch_time, x_Vx_temp] = ode45( @(t,x) ...
                     obj.dxdt(t,x), [0, 5e-3], [0; obj.params.CALC_vel_synch_mol], opts); % ode23t seems a good solver so why ode45 used?
-            else
+            else % use ugly hand made Euler method
                 xx = [0; obj.params.CALC_vel_synch_mol];
                 t_step = 1e-8;
                 tt= 0:t_step:5e-3;
@@ -511,19 +438,10 @@ classdef InputParameters < handle
             % in the .out file we save M_time_vec and M_trigger_pattern
             % in the .mat file we save all the files with M_'something'
 
-            %             if obj.params.CALC_save_sequence_bool
-%                 seq_file = fopen(obj.M_sequence_path,'w'); % will fail if folder does not exists
-%                 fprintf(seq_file, '%s\t%s\n', [string(round(obj.M_time_vec*1e9)), obj.M_trigger_pattern]');
-%                 fclose(seq_file);
-%             end
-
             if obj.verbose % we plot the synch molecule
-
                 obj.plotTimeSequence()
-
-                
-               
             end
+
             fprintf('\tFinal Matlab velocity is %d\n', obj.params.FLY_simulated_target_vel)
             simulated_target_vel = obj.params.FLY_simulated_target_vel; 
 %             I return the compute velocity, to be used if needed.
@@ -700,12 +618,12 @@ classdef InputParameters < handle
                 obj.params.FLY_voltage_on_electrodes = new_voltage;
                 obj.params.FLY_focusing_mode_bool = new_focusing_mode_bool;
             end
-%             if ~isempty(obj.ax_norm)
-%                  [obj.ax_norm, obj.ay_norm, obj.az_norm] = deal([],[],[]);
-%             end
-%             if ~isempty(obj.ax_pos)
-%                  [obj.ax_pos, obj.ax_neg, obj.ay_pos, obj.ay_neg, obj.az_pos, obj.az_neg] = deal([], [], [], [], [], []);
-%             end
+            if ~isempty(obj.ax_norm) % set fields to zero, for safety
+                 [obj.ax_norm, obj.ay_norm, obj.az_norm] = deal([],[],[]);
+            end
+            if ~isempty(obj.ax_pos)
+                 [obj.ax_pos, obj.ax_neg, obj.ay_pos, obj.ay_neg, obj.az_pos, obj.az_neg] = deal([], [], [], [], [], []);
+            end
             % re-load acceleration fields
             obj.loadAccelerationFields();
             obj.InterpolateAccField()
@@ -803,7 +721,7 @@ classdef InputParameters < handle
 
         end
 
-               %% plotAccelerationFields
+        %% plotAccelerationFields
         % plot the fields
         function plotAccelerationFields(obj)
             fprintf('Plotting acceleration fields ...\t')
@@ -1042,7 +960,6 @@ classdef InputParameters < handle
                 
                 
                 
-                10e3;
 %                 figure()
 %                 subplot(3,1,1)
 %                 imagesc(slice_ax_neg_a_y); colorbar;
@@ -1069,12 +986,6 @@ classdef InputParameters < handle
 %                 subplot(2,1,2)
 %                 imagesc(slice_az_pos_a_y); colorbar;
 %                 xlabel('x (grid units)'); ylabel('y (grid units)'); title('acc az x,z plane (pos. on)')
-
-
-                
-
-                
-
             end    
 
 
@@ -1188,9 +1099,6 @@ classdef InputParameters < handle
 %                plot(obj.M_synch_time .* 1e3, obj.M_synch_velocity - linear_velocity);
 %                 title('Vx (m/s) - linear decrease'); ylabel('Vx (m/s)'); xlabel('t (ms)');
 
-
-
-                
                 % plot the single timesteps, to see how they very in the
                 % variable-timestep ODE solvers of MATLAB. 
                 % get rid of first and few last ones as they screw up the
@@ -1206,13 +1114,7 @@ classdef InputParameters < handle
                 histogram(time_step_difference, 300)
                 xlabel('Intergation timestep (ns)'); title('Histrogram of time steps')
 
-
-            
-
-            
         end    
 
-        
-        
     end
 end
