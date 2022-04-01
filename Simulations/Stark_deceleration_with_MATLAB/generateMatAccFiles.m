@@ -17,33 +17,40 @@ SIMION_nk = 41; % number of grid points y,z (perpendicular to beam axis)
 
 fprintf('Loading normal mode fields ...\t')
 for i =1:2
-filename = '../dec_Norm_' + strrep( string(voltages(i)), '.', 'p') + 'kV/output/'
-paren = @(x, varargin) x(varargin{:}); % in-line function to reshape a matrix without a temporary variable
+    filename = '../dec_Norm_' + strrep( string(voltages(i)), '.', 'p') + 'kV/output/'
+    paren = @(x, varargin) x(varargin{:}); % in-line function to reshape a matrix without a temporary variable
 
-ax_norm = permute( reshape( table2array( paren( ...
-    readtable(filename + 'outax.dat'), ':', 4) ), ...
-    [SIMION_nj, SIMION_nk, SIMION_ni]), [3 2 1]);
-ax_norm=ax_norm(21:131,:,:); %reshape martrix from n_begin(21)-n_end(131) in x direction
+    ax_norm = permute( reshape( table2array( paren( ...
+        readtable(filename + 'outax.dat'), ':', 4) ), ...
+        [SIMION_nj, SIMION_nk, SIMION_ni]), [3 2 1]);
+    ax_norm=ax_norm(21:131,:,:); %reshape martrix from n_begin(21)-n_end(131) in x direction
 
-ay_norm = permute( reshape( table2array( paren( ...
-    readtable(filename + 'outay.dat'), ':', 4) ), ...
-    [SIMION_nj, SIMION_nk, SIMION_ni]), [3 2 1]);
-ay_norm=ay_norm(21:131,:,:);
+    ay_norm = permute( reshape( table2array( paren( ...
+        readtable(filename + 'outay.dat'), ':', 4) ), ...
+        [SIMION_nj, SIMION_nk, SIMION_ni]), [3 2 1]);
+    ay_norm=ay_norm(21:131,:,:);
 
-az_norm = permute( reshape( table2array( paren( ...
-    readtable(filename + 'outaz.dat'), ':', 4) ), ...
-    [SIMION_nj, SIMION_nk, SIMION_ni]), [3 2 1]);
-az_norm=az_norm(21:131,:,:);
+    az_norm = permute( reshape( table2array( paren( ...
+        readtable(filename + 'outaz.dat'), ':', 4) ), ...
+        [SIMION_nj, SIMION_nk, SIMION_ni]), [3 2 1]);
+    az_norm=az_norm(21:131,:,:);
 
+    % symmetrize the fields
+    ax_norm = (ax_norm + flip(ax_norm, 2))/2;
+    ax_norm = (ax_norm + flip(ax_norm, 3))/2;
+    ay_norm = (ay_norm - flip(ay_norm, 2))/2;
+    ay_norm = (ay_norm + flip(ay_norm, 3))/2;
+    az_norm = (az_norm + flip(az_norm, 2))/2;
+    az_norm = (az_norm - flip(az_norm, 3))/2;
 
-% symmetrize the y, z fields NOT DONE HERE!!
-%  ay_norm = (ay_norm - flip(ay_norm, 2))/2;
-%  az_norm = (az_norm - flip(az_norm, 3))/2;
+    % symmetrize the y, z fields NOT DONE HERE!!
+    %  ay_norm = (ay_norm - flip(ay_norm, 2))/2;
+    %  az_norm = (az_norm - flip(az_norm, 3))/2;
 
-% save the variables ax_norm, ay_norm, az_norm in new mat files
-new_filename = './acc/dec_norm_' + strrep( string(voltages(i)), '.', 'p') + 'kV/'
-save(new_filename + 'a_norm', 'ax_norm', 'ay_norm', 'az_norm')
-clearvars ax_norm ay_norm az_norm
+    % save the variables ax_norm, ay_norm, az_norm in new mat files
+    new_filename = './acc/dec_norm_' + strrep( string(voltages(i)), '.', 'p') + 'kV/'
+    save(new_filename + 'a_norm', 'ax_norm', 'ay_norm', 'az_norm')
+    clearvars ax_norm ay_norm az_norm
 end
 
 
@@ -108,12 +115,38 @@ for i=1:length(voltages)
     [SIMION_nj, SIMION_nk, SIMION_ni]), [3 2 1]);
     az_neg=az_neg(21:131,:,:);
     
+    % symmetrise the fields
+    ax_norm = (ax_norm + flip(ax_norm, 2))/2;
+    ax_norm = (ax_norm + flip(ax_norm, 3))/2;
+    ay_norm = (ay_norm - flip(ay_norm, 2))/2;
+    ay_norm = (ay_norm + flip(ay_norm, 3))/2;
+    az_norm = (az_norm + flip(az_norm, 2))/2;
+    az_norm = (az_norm - flip(az_norm, 3))/2;
+
+    ax_pos = (ax_pos + flip(ax_pos, 2))/2;
+    ax_neg = (ax_neg + flip(ax_neg, 2))/2;
+    ax_neg = (ax_neg + flip(ax_pos,3))/2;
+    ax_pos = flip(ax_neg, 3);
+
+
+    ay_pos = (ay_pos - flip(ay_pos, 2))/2;
+    ay_neg = (ay_neg - flip(ay_neg, 2))/2;
+    ay_neg = (ay_neg + flip(ay_pos, 3))/2;
+    ay_pos = flip(ay_neg, 3);
+
+    az_pos = (az_pos + flip(az_pos, 2))/2;
+    az_neg = (az_neg + flip(az_neg, 2))/2;
+    az_neg = (az_neg - flip(az_pos, 3))/2;
+    az_pos = -flip(az_neg, 3);
+    
+    
+    % % previous version: 
     % % symmetrize the y, z fields NOT DONE IN HERE
     % ay_norm = (ay_norm - flip(ay_norm, 2))/2;
     % az_norm = (az_norm - flip(az_norm, 3))/2;
     % 
     % % %            
-    % % %                  also for focusing mode
+    % % %also for focusing mode
     % ay_pos = (ay_pos + flip(ay_neg, 3))/2;
     % ay_neg = flip( ay_pos, 3);
     % 
