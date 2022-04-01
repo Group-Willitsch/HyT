@@ -10,21 +10,15 @@ classdef InputParameters < handle
         az_norm, az_pos, az_neg
         ax_norm_1d_interpl, ax_neg_1d_interpl % acceleration along beam axis, only for generating time sequence
         
-        
         ax_norm_extended, ay_norm_extended, az_norm_extended
         ax_norm_interpl,ay_norm_interpl,az_norm_interpl
-        ax_norm_H_extended, ay_norm_H_extended, az_norm_H_extended
         ax_norm_H_interpl, ay_norm_H_interpl, az_norm_H_interpl
         ax_neg_extended, ay_neg_extended, az_neg_extended
         ax_neg_interpl,ay_neg_interpl,az_neg_interpl
-        ax_neg_H_extended, ay_neg_H_extended, az_neg_H_extended
         ax_neg_H_interpl, ay_neg_H_interpl, az_neg_H_interpl
-        ax_pos_extended, ay_pos_extended, az_pos_extended
         ax_pos_interpl,ay_pos_interpl,az_pos_interpl
-        ax_pos_H_extended, ay_pos_H_extended, az_pos_H_extended
         ax_pos_H_interpl, ay_pos_H_interpl, az_pos_H_interpl
-        
-        
+
         % FORTRAN trigger sequence imported from the T2Jumps files
         T2Jump_time_vec, T2Jump_trigger_pattern, T2Jump_stage_number 
 
@@ -103,16 +97,14 @@ classdef InputParameters < handle
             obj.params.CALC_Beff = 0.58; % B effective value of MK/J(J+1)
             
             % Parameters used for the molecular beam
-            obj.params.BEAM_avg_velocity_beam = 490; % Average velocity incoming package (m/s) 
+            obj.params.BEAM_avg_velocity_beam = 480; % Average velocity incoming package (m/s) 
             obj.params.BEAM_radius_of_nozzle = 0.25e-3; % radius of the valve nozzle (m)
             obj.params.BEAM_long_pos_spread = 11.5e-3; % ????? longitudinal position spread (m) - along x aixs or beam propagation
             obj.params.BEAM_long_vel_spread = 0.13*obj.params.BEAM_avg_velocity_beam ; % relative velocity spread along beam axis 0.112 0.12
             obj.params.BEAM_trans_velocity_spread = 5; % will be 15 or 25 in the end, arbitrary was not measured velocity spread perp. to beam axis/average velocity 0.10
 
-
-
             % Parameters used in fly and in the simulation
-            obj.params.FLY_incoupling_time = obj.params.PHYS_valve_to_dec/obj.params.CALC_vel_synch_mol;%710.2e-6; % valve - decelerator incoupling time (s)
+            obj.params.FLY_incoupling_time = obj.params.PHYS_valve_to_dec/obj.params.CALC_vel_synch_mol; %710.2e-6; % valve - decelerator incoupling time (s)
             obj.params.FLY_detection_laser_diameter = 1e-3;
             obj.params.FLY_simulated_target_vel = []; % to be assigned while loading or generating the Matlab sequence.
             % Stores the rounded value of the last velocity vector. Ideally
@@ -129,8 +121,6 @@ classdef InputParameters < handle
             if obj.fortran_seq_bool
                 obj.loadFortranTimeSequence();
             end 
-
-
 
             if obj.checkIfMatlabSequenceAlreadyExists && ~obj.always_generate_M_seq % if the Matlab sequence already exists, just load it
                 fprintf('Matlab sequence already exists, I will just load it.\n')
@@ -179,12 +169,13 @@ classdef InputParameters < handle
                 % load fields from the .mat files in the acc folder
                 filename = './acc/dec_norm_' + strrep( string( obj.params.FLY_voltage_on_electrodes ), '.', 'p') + 'kV/';
                 load(filename + 'a_norm') % load them in local workspace
-                obj.ax_norm = ax_norm; obj.ay_norm = ay_norm; obj.az_norm = ax_norm;
+                obj.ax_norm = ax_norm; obj.ay_norm = ay_norm; obj.az_norm = az_norm;
                 clearvars ax_norm ay_norm az_norm % ugly: clear them from local workspace
 
+                % symmetrize the fields: to save time, the fields have already been symmetrized when saving field mat files, see "generateMatAccFiles.m"
                 % symmetrize the y, z fields
-                 obj.ay_norm = (obj.ay_norm - flip(obj.ay_norm, 2))/2;
-                 obj.az_norm = (obj.az_norm - flip(obj.az_norm, 3))/2;
+%                  obj.ay_norm = (obj.ay_norm - flip(obj.ay_norm, 2))/2;
+%                  obj.az_norm = (obj.az_norm - flip(obj.az_norm, 3))/2;
                 
             else % load focusing mode fields
                 fprintf('Loading focusing mode accelerations...')
@@ -194,131 +185,74 @@ classdef InputParameters < handle
                 end
                 filename = './acc/dec_foc_' + strrep( string(obj.params.FLY_voltage_on_electrodes), '.', 'p') + 'kV/';
                 load(filename + 'a_norm'); load(filename + 'a_pos'); load(filename + 'a_neg'); 
-                obj.ax_norm = ax_norm; obj.ay_norm = ay_norm; obj.az_norm = ax_norm;
-                obj.ax_pos = ax_pos; obj.ay_pos = ay_pos; obj.az_pos = ax_pos;
-                obj.ax_neg = ax_neg; obj.ay_neg = ay_neg; obj.az_neg = ax_neg;
+                obj.ax_norm = ax_norm; obj.ay_norm = ay_norm; obj.az_norm = az_norm;
+                obj.ax_pos = ax_pos; obj.ay_pos = ay_pos; obj.az_pos = az_pos;
+                obj.ax_neg = ax_neg; obj.ay_neg = ay_neg; obj.az_neg = az_neg;
 
                 clearvars ax_norm ax_pos ax_neg ay_norm ay_neg ay_pos az_norm az_pos az_neg
+                
+                
+                % symmetrize the fields: to save time, the fields have already been symmetrized when saving field mat files, see "generateMatAccFiles.m"
                 % symmetrize the y, z fields
-                 obj.ay_norm = (obj.ay_norm - flip(obj.ay_norm, 2))/2;
-                 obj.az_norm = (obj.az_norm - flip(obj.az_norm, 3))/2;
-                  % also for focusing mode
-                 obj.ay_pos = (obj.ay_pos + flip(obj.ay_neg, 3))/2;
-                 obj.ay_neg = flip( obj.ay_pos, 3);
-                 obj.az_pos = (obj.az_pos - flip(obj.az_neg, 3))/2;
-                 obj.az_neg = - flip(obj.az_pos, 3);
+%                  obj.ay_norm = (obj.ay_norm - flip(obj.ay_norm, 2))/2;
+%                  obj.az_norm = (obj.az_norm - flip(obj.az_norm, 3))/2;
+%                   % also for focusing mode
+%                  obj.ay_pos = (obj.ay_pos + flip(obj.ay_neg, 3))/2;
+%                  obj.ay_neg = flip( obj.ay_pos, 3);
+%                  obj.az_pos = (obj.az_pos - flip(obj.az_neg, 3))/2;
+%                  obj.az_neg = - flip(obj.az_pos, 3);
             end % when calling this function we have to also call interpolateAccField again in order 
             fprintf('\tloaded\n')
         end
         
         %% Interpolate acceleration field
         function InterpolateAccField(obj)
-            fprintf('Interpolating accelerations fields...\t\t')
-            tic;
-            num_grids_x = 111 + 110 * 122 + 20; % AT LEAST 123, MAYBE 124??
-            num_grids_y = 41 + 20;
-            num_grids_z = 41 + 20;
-            gridded_x = linspace(-10/obj.params.SIMION_grid_units_p_meter, obj.params.PHYS_length_dec + 10/obj.params.SIMION_grid_units_p_meter, num_grids_x);
-            gridded_y = linspace(-10/obj.params.SIMION_grid_units_p_meter - obj.params.PHYS_seperation_pins/2.0, obj.params.PHYS_seperation_pins/2.0 + 10/obj.params.SIMION_grid_units_p_meter, num_grids_y);
-            gridded_z =	linspace(-10/obj.params.SIMION_grid_units_p_meter - obj.params.PHYS_seperation_pins/2.0, obj.params.PHYS_seperation_pins/2.0 + 10/obj.params.SIMION_grid_units_p_meter, num_grids_z);
+            num_grids_x = 111 + 110 * 122 + 4;
+            num_grids_y = 41 + 4;
+            num_grids_z = 41 + 4;
+            gridded_x = linspace(-2/obj.params.SIMION_grid_units_p_meter, obj.params.PHYS_length_dec + 2/obj.params.SIMION_grid_units_p_meter, num_grids_x);
+            gridded_y = linspace(-2/obj.params.SIMION_grid_units_p_meter-obj.params.PHYS_seperation_pins/2.0, obj.params.PHYS_seperation_pins/2.0 + 2/obj.params.SIMION_grid_units_p_meter, num_grids_y);
+            gridded_z =	linspace(-2/obj.params.SIMION_grid_units_p_meter-obj.params.PHYS_seperation_pins/2.0, obj.params.PHYS_seperation_pins/2.0 + 2/obj.params.SIMION_grid_units_p_meter, num_grids_z);
 
             obj.ax_norm_extended = zeros(num_grids_x, num_grids_y, num_grids_z); %Vertical ones
             obj.ay_norm_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
             obj.az_norm_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
+            obj.ax_norm_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.ax_norm, flip(-obj.ax_norm(2:110,:,:),1)), 61, 1, 1), obj.ax_norm);  % before  obj.ax_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.ax_norm, flip(-obj.ax_norm(22:130,:,:),1)), 61, 1, 1), obj.ax_norm);
+            obj.ay_norm_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.ay_norm, flip(obj.ay_norm(2:110,:,:),1)), 61, 1, 1), obj.ay_norm);
+            obj.az_norm_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.az_norm, flip(obj.az_norm(2:110,:,:),1)), 61, 1, 1), obj.az_norm);
             
-            % WHY 109??? Should start normally from 110
-            % why is the extra 123th pulse added at the end? Shoudlnt' it
-            % be added at the beggining? 
-            obj.ax_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat( cat(1, obj.ax_norm, flip( -obj.ax_norm(1:109,:,:), 1) ), 61, 1, 1), obj.ax_norm);  
-            obj.ay_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat( cat(1, obj.ay_norm, flip( obj.ay_norm(1:109,:,:), 1) ), 61, 1, 1), obj.ay_norm);
-            obj.az_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat( cat(1, obj.az_norm, flip( obj.az_norm(1:109,:,:), 1) ), 61, 1, 1), obj.az_norm);
-            obj.ax_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ax_norm_extended,'linear','linear');
-            obj.ay_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_norm_extended,'linear','linear');
-            obj.az_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.az_norm_extended,'linear','linear');
-
-            obj.ax_norm_H_extended = zeros(num_grids_x, num_grids_y, num_grids_z); %Horizontal
-            obj.ay_norm_H_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-            obj.az_norm_H_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-            obj.ax_norm_H_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,flip(-obj.ax_norm,1), obj.ax_norm(1:109,:,:)), 61, 1, 1), flip(-obj.ax_norm,1));
-            obj.ay_norm_H_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,flip(obj.ay_norm,1), obj.ay_norm(1:109,:,:)), 61, 1, 1), flip(obj.ay_norm,1));
-            obj.az_norm_H_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,flip(obj.az_norm,1), obj.az_norm(1:109,:,:)), 61, 1, 1), flip(obj.az_norm,1));
-            obj.ax_norm_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ax_norm_H_extended,'linear','linear');
-            obj.ay_norm_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_norm_H_extended,'linear','linear');% exchange z and y
-            obj.az_norm_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.az_norm_H_extended,'linear','linear');
+            obj.ax_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ax_norm_extended,'linear', 'linear');
+            obj.ay_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_norm_extended,'linear', 'linear');
+            obj.az_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.az_norm_extended,'linear', 'linear');
+            
+            obj.ax_norm_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, -flip(obj.ax_norm_extended,1),'linear', 'linear');
+            obj.ay_norm_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(obj.ay_norm_extended,1),'linear', 'linear');
+            obj.az_norm_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(obj.az_norm_extended,1),'linear', 'linear');
             
             if obj.params.FLY_focusing_mode_bool
                 obj.ax_neg_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
                 obj.ay_neg_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
                 obj.az_neg_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-                obj.ax_neg_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.ax_neg, flip(-obj.ax_neg(1:109,:,:),1)), 61, 1, 1), obj.ax_neg);
-                obj.ay_neg_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.ay_neg, flip(obj.ay_neg(1:109,:,:),1)), 61, 1, 1), obj.ay_neg);
-                obj.az_neg_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.az_neg, flip(obj.az_neg(1:109,:,:),1)), 61, 1, 1), obj.az_neg);
-                obj.ax_neg_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ax_neg_extended,'linear','linear');
-                obj.ay_neg_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_neg_extended,'linear','linear');
-                obj.az_neg_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.az_neg_extended,'linear','linear');
-
-                obj.ax_neg_H_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-                obj.ay_neg_H_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-                obj.az_neg_H_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-                obj.ax_neg_H_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,flip(-obj.ax_neg,1), obj.ax_neg(1:109,:,:)), 61, 1, 1), flip(-obj.ax_neg,1));
-                obj.ay_neg_H_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,flip(obj.ay_neg,1), obj.ay_neg(1:109,:,:)), 61, 1, 1), flip(obj.ay_neg,1));
-                obj.az_neg_H_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,flip(obj.az_neg,1), obj.az_neg(1:109,:,:)), 61, 1, 1), flip(obj.az_neg,1));
-                obj.ax_neg_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ax_neg_H_extended,'linear','linear');
-                obj.ay_neg_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_neg_H_extended,'linear','linear');
-                obj.az_neg_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.az_neg_H_extended,'linear','linear');
+                obj.ax_neg_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.ax_neg, flip(-obj.ax_neg(2:110,:,:),1)), 61, 1, 1), obj.ax_neg);
+                obj.ay_neg_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.ay_neg, flip(obj.ay_neg(2:110,:,:),1)), 61, 1, 1), obj.ay_neg);
+                obj.az_neg_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.az_neg, flip(obj.az_neg(2:110,:,:),1)), 61, 1, 1), obj.az_neg);
                 
-                obj.ax_pos_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-                obj.ay_pos_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-                obj.az_pos_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-                obj.ax_pos_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.ax_pos, flip(-obj.ax_pos(1:109,:,:),1)), 61, 1, 1), obj.ax_pos);
-                obj.ay_pos_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.ay_pos, flip(obj.ay_pos(1:109,:,:),1)), 61, 1, 1), obj.ay_pos);
-                obj.az_pos_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.az_pos, flip(obj.az_pos(1:109,:,:),1)), 61, 1, 1), obj.az_pos);
-                obj.ax_pos_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ax_pos_extended,'linear','linear');
-                obj.ay_pos_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_pos_extended,'linear','linear');
-                obj.az_pos_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.az_pos_extended,'linear','linear');
+                obj.ax_neg_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ax_neg_extended,'linear', 'linear');
+                obj.ay_neg_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_neg_extended,'linear', 'linear');
+                obj.az_neg_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.az_neg_extended,'linear', 'linear');
 
-                obj.ax_pos_H_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-                obj.ay_pos_H_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-                obj.az_pos_H_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-                obj.ax_pos_H_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,flip(-obj.ax_pos,1), obj.ax_pos(1:109,:,:)), 61, 1, 1), flip(-obj.ax_pos,1));
-                obj.ay_pos_H_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,flip(obj.ay_pos,1), obj.ay_pos(1:109,:,:)), 61, 1, 1), flip(obj.ay_pos,1));
-                obj.az_pos_H_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,flip(obj.az_pos,1), obj.az_pos(1:109,:,:)), 61, 1, 1), flip(obj.az_pos,1));
-                obj.ax_pos_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ax_pos_H_extended,'linear','linear');
-                obj.ay_pos_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_pos_H_extended,'linear','linear');
-                obj.az_pos_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.az_pos_H_extended,'linear','linear');
-            end
-            el_time = toc;
-            fprintf('done in %d s\n', el_time)
-        end
-        
+                obj.ax_neg_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, -flip(obj.ax_neg_extended,1),'linear', 'linear');
+                obj.ay_neg_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(obj.ay_neg_extended,1),'linear', 'linear');
+                obj.az_neg_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(obj.az_neg_extended,1),'linear', 'linear');
+                
+                obj.ax_pos_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(obj.ax_neg_extended,3),'linear', 'linear');
+                obj.ay_pos_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(obj.ay_neg_extended,3),'linear', 'linear');
+                obj.az_pos_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, -flip(obj.az_neg_extended,3),'linear', 'linear');
 
-        %% loadFortranTimeSequence
-        % from appropriate folder and save it to the class variables
-        % MANDATORY TO FIRST RUN THE SH CODE THAT CLEANS UP THE FILES...
-        % matlab goes nut for the variable number of whitespaces. Python
-        % should be fine with it. 
-        function loadFortranTimeSequence(obj)
-            if obj.params.FLY_focusing_mode_bool == false % folder path for normal mode
-                timeSequenceFolder = ...
-                    '../dec_Norm_' + strrep( string(obj.params.FLY_voltage_on_electrodes), '.', 'p') ...
-                    + 'kV/timeseq/sequences/dec_' + num2str(obj.params.CALC_vel_synch_mol) + ...
-                    '_' + num2str(obj.params.FLY_target_velocity) + '/T2jump_c.out' ;
-            else % folder path for focusing files
-                timeSequenceFolder = ...
-                    '../dec_FM_' + strrep( string(obj.params.FLY_voltage_on_electrodes), '.', 'p') + ...
-                    'kV/timeseq/sequences/dec_' + num2str(obj.params.CALC_vel_synch_mol) + ...
-                    '_' + num2str(obj.params.FLY_target_velocity) + '/T2jump_c.out';
-            end
-            opt = detectImportOptions(timeSequenceFolder, 'FileType', 'text');
-            opt.CommentStyle = '#'; opt.Delimiter = {'\t' ' '}; 
-            opt.VariableTypes = {'double', 'char', 'char', 'uint8'};
-            out = readtable(timeSequenceFolder, opt);
-            obj.T2Jump_time_vec = table2array(out(:, 1));
-            obj.T2Jump_trigger_pattern = cell2mat(table2array(out(:, 2)));
-            obj.T2Jump_trigger_pattern = obj.T2Jump_trigger_pattern(:, (end-3):end); % gets rid of the b or 0x in front
-            obj.T2Jump_stage_number = uint8(table2array(out(:, 4))); % also force uint8
-            fprintf('Fortran time sequence loaded:\t\t' + timeSequenceFolder + '\n')
-            clearvars out timeSequenceFolder opt;
+                obj.ax_pos_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, -flip(flip(obj.ax_neg_extended,3),1),'linear', 'linear');
+                obj.ay_pos_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(flip(obj.ay_neg_extended,3),1),'linear', 'linear');
+                obj.az_pos_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(-flip(obj.az_neg_extended,3),1),'linear', 'linear');
+            end    
         end
         
         %% loadFortranTimeSequence from T2jump.out
@@ -326,7 +260,7 @@ classdef InputParameters < handle
         % MANDATORY TO FIRST RUN THE SH CODE THAT CLEANS UP THE FILES...
         % matlab goes nut for the variable number of whitespaces. Python
         % should be fine with it. 
-        function loadFortranTimeSequence2(obj)
+        function loadFortranTimeSequence(obj)
             if obj.params.FLY_focusing_mode_bool == false % folder path for normal mode
                 timeSequenceFolder = ...
                     '../dec_Norm_' + strrep( string(obj.params.FLY_voltage_on_electrodes), '.', 'p') ...
@@ -499,12 +433,12 @@ classdef InputParameters < handle
                 timeSequenceFolder = ...
                     '../dec_Norm_' + strrep( string(obj.params.FLY_voltage_on_electrodes), '.', 'p') ...
                     + 'kV/timeseq/sequences/dec_' + num2str(obj.params.CALC_vel_synch_mol) + ...
-                    '_' + num2str(obj.params.FLY_target_velocity) + '/T2jump_c.out' ;
+                    '_' + num2str(obj.params.FLY_target_velocity) + '/T2jump.out' ;
             else % folder path for focusing files
                 timeSequenceFolder = ...
                     '../dec_FM_' + strrep( string(obj.params.FLY_voltage_on_electrodes), '.', 'p') + ...
                     'kV/timeseq/sequences/dec_' + num2str(obj.params.CALC_vel_synch_mol) + ...
-                    '_' + num2str(obj.params.FLY_target_velocity) + '/T2jump_c.out';
+                    '_' + num2str(obj.params.FLY_target_velocity) + '/T2jump.out';
             end
             sequence_exist = isfile(timeSequenceFolder);
             if ~sequence_exist
@@ -755,7 +689,7 @@ classdef InputParameters < handle
                 subplot(3, 1, 2); plot(x, obj.ay_pos(:, ycut, zcut), 'DisplayName', 'ay foc +');
                 plot(x, obj.ay_neg(:, ycut, zcut), 'DisplayName', 'ay foc -'); legend();
                 subplot(3, 1, 3); plot(x, obj.az_pos(:, ycut, zcut), 'DisplayName', 'az foc +');
-                plot(x, obj.az_neg(:, ycut, zcut), 'DisplayName', 'abs(az foc -)'); legend();
+                plot(x, obj.az_neg(:, ycut, zcut), 'DisplayName', 'az foc -'); legend();
             end % Again here ax etc. was adapted no need to adjust range
 
             % 2D plot
@@ -799,22 +733,6 @@ classdef InputParameters < handle
             imagesc(slice_az_norm_a_z); colorbar; axis xy;
             xlabel('x (grid units)'); ylabel('y (grid units)'); title('a_z, x-y (longitudinal)')
 
-
-
-% 
-%             figure(); % 3D plots of slices along each axes, problem is the scaling along each axis thus better plot spereately
-%             slice(obj.ax_norm,ycut,xcut,zcut)
-%             title('a_x NM'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar;
-% 
-%             figure();
-%             slice(obj.ay_norm,ycut,xcut,zcut)
-%             title('a_y NM'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar; caxis([min(obj.ay_norm(:)),max(obj.ay_norm(:))]);
-% 
-% 
-%             figure();
-%             slice(obj.az_norm,ycut,xcut,zcut)
-%             title('a_z NM'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar; caxis([-70000, 70000])
-
             if obj.params.FLY_focusing_mode_bool == true
 
                 slice_ax_pos_a_x = permute(obj.ax_pos(xcut,:,:), [3, 2, 1]);
@@ -824,7 +742,6 @@ classdef InputParameters < handle
                 slice_ax_neg_a_x = permute(obj.ax_neg(xcut,:,:), [3, 2, 1]);
                 slice_ax_neg_a_y = permute(obj.ax_neg(:, ycut,:), [3, 1, 2]);
                 slice_ax_neg_a_z = permute(obj.ax_neg(:,:,zcut), [2, 1, 3]);
-
 
                 figure()
                 subplot(2,3,1)
@@ -919,73 +836,6 @@ classdef InputParameters < handle
                 subplot(2,3,6)
                 imagesc(slice_az_neg_a_z); colorbar; axis xy;
                 xlabel('x (grid units)'); ylabel('y (grid units)'); title('acc az_{neg}, x-y');
-
-                
-                
-
-   
-
-%                 slice_ay_pos_a_y = permute(obj.ay_pos(:,ycut,:), [3, 1, 2]); % output is x  z,  axis /plane
-%                 slice_ay_neg_a_y = permute(obj.ay_neg(:,ycut,:), [3, 1, 2]); % output is x z, axis /plane
-% 
-%                 slice_az_pos_a_y = permute(obj.az_pos(:, :,zcut), [2, 1, 3]); % output is x, y plane
-%                 slice_az_neg_a_y = permute(obj.az_neg(:,:,zcut), [2, 1, 3]); % output is x, y plane
-
-%                 figure();
-%                 subplot(2,1,1)
-%                 slice(obj.ax_pos,yslice,xslice,zslice)
-%                 title('a_x pos'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar; caxis([min(obj.ax_pos(:)),max(obj.ax_pos(:))]);
-% 
-%                 subplot(2,1,2)
-%                 slice(obj.ax_neg,yslice,xslice,zslice)
-%                 title('a_x neg'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar;caxis([min(obj.ax_neg(:)),max(obj.ax_neg(:))]);
-% 
-%                 figure();
-%                 subplot(2,1,1)
-%                 slice(obj.ay_pos,yslice,xslice,zslice)
-%                 title('a_y pos'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); caxis([min(obj.ax_neg(:)),max(obj.ax_neg(:))]);;
-% 
-%                 subplot(2,1,2)
-%                 slice(obj.ay_neg,yslice,xslice,zslice)
-%                 title('a_y neg'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); caxis([min(obj.ax_neg(:)),max(obj.ax_neg(:))]);;
-% 
-%                 figure();
-%                 subplot(2,1,1)
-%                 slice(obj.az_pos,yslice,xslice,zslice)
-%                 title('a_z pos'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar;
-% 
-%                 subplot(2,1,2)
-%                 slice(obj.az_neg,yslice,xslice,zslice)
-%                 title('a_z neg'); xlabel('y-axis'); ylabel('x-axis'); zlabel('z-axis'); colorbar;
-                
-                
-                
-%                 figure()
-%                 subplot(3,1,1)
-%                 imagesc(slice_ax_neg_a_y); colorbar;
-%                 xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc ax, x,z plane (neg. on)')
-% 
-%                 subplot(3,1,2)
-%                 imagesc(slice_ax_pos_a_y); colorbar;
-%                 xlabel('x (grid units)'); ylabel('z (grid units)'); title('acc ax x,z plane (pos. on)')
-%                 
-%                 figure()
-%                 subplot(2,1,1)
-%                 imagesc(slice_ay_neg_a_y); colorbar;
-%                 xlabel('z (grid units)'); ylabel('y (grid units)'); title('acc ay x,y plane (neg. on)')
-% 
-%                 subplot(2,1,2)
-%                 imagesc(slice_ay_pos_a_y); colorbar;
-%                 xlabel('z (grid units)'); ylabel('y (grid units)'); title('acc ay x,y plane (pos. on)')
-%                 
-%                 figure()
-%                 subplot(2,1,1)
-%                 imagesc(slice_az_neg_a_y); colorbar;
-%                 xlabel('x (grid units)'); ylabel('y (grid units)'); title('acc az x,z plane (neg. on)')
-% 
-%                 subplot(2,1,2)
-%                 imagesc(slice_az_pos_a_y); colorbar;
-%                 xlabel('x (grid units)'); ylabel('y (grid units)'); title('acc az x,z plane (pos. on)')
             end    
 
 
