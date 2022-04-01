@@ -45,40 +45,43 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
         
         %% create particles
 %         
-%         function createParticles(obj)
-%             rng('default') % fix the seed of the random nunber generator to bremoved afterwards
-%             obj.xyzVxyz_0 = randn(obj.num_particles, 6)/sqrt(8*log(2)).*... %conversion factor to std from full width half max, below adjust normal dist. to represent particles
-%                 [obj.in.params.BEAM_long_pos_spread, obj.in.params.BEAM_radius_of_nozzle, obj.in.params.BEAM_radius_of_nozzle,...                            
-%                  obj.in.params.BEAM_long_vel_spread, obj.in.params.BEAM_trans_velocity_spread, obj.in.params.BEAM_trans_velocity_spread] + ...
-%                 [-obj.in.params.PHYS_valve_to_dec, 0, 0, obj.in.params.BEAM_avg_velocity_beam, 0, 0]; %set v_x to avergae and set all particles to valve pos. (decc x=0)
-% 
-%             obj.xyzVxyz_0(1,:) = [-obj.in.params.PHYS_valve_to_dec, 0, 0, 450, 0, 0]; % The first row is for a synchronous molecule
-%             E_kin=((0.5*((obj.xyzVxyz_0(:,4)).^2 + (obj.xyzVxyz_0(:,5)).^2 + (obj.xyzVxyz_0(:,6)).^2))-0.5*(obj.xyzVxyz_0(1,4).^2 + obj.xyzVxyz_0(1,5).^2 + obj.xyzVxyz_0(1,6).^2))*1e-5;           
-%             sort_E_kin= [obj.xyzVxyz_0,abs(E_kin)];
-%             sort_E_kin= sortrows(sort_E_kin,7);
-%             obj.xyzVxyz_0=sort_E_kin(:,1:6);   
-%         end
-
-
-        function createParticles(obj,in_l) % WHAT IS IN_l?? CRYPTIC NAME 
+        function createParticles(obj)
             rng('default') % fix the seed of the random nunber generator to bremoved afterwards
-            
-            xyzVxyz_0_l = randn(obj.num_particles, 6)/sqrt(8*log(2)).*... %conversion factor to std from full width half max, below adjust normal dist. to represent particles
-                [in_l.BEAM_long_pos_spread, in_l.BEAM_radius_of_nozzle, in_l.BEAM_radius_of_nozzle,...
-                in_l.BEAM_long_vel_spread, in_l.BEAM_trans_velocity_spread, in_l.BEAM_trans_velocity_spread] + ...
-                [-in_l.PHYS_valve_to_dec, 0, 0, in_l.BEAM_avg_velocity_beam, 0, 0]; %set v_x to avergae and set all particles to valve pos. (decc x=0)
+            obj.xyzVxyz_0 = randn(obj.num_particles, 6)/sqrt(8*log(2)).*... %conversion factor to std from full width half max, below adjust normal dist. to represent particles
+                [obj.in.params.BEAM_long_pos_spread, obj.in.params.BEAM_radius_of_nozzle, obj.in.params.BEAM_radius_of_nozzle,...                            
+                 obj.in.params.BEAM_long_vel_spread, obj.in.params.BEAM_trans_velocity_spread, obj.in.params.BEAM_trans_velocity_spread] + ...
+                [-obj.in.params.PHYS_valve_to_dec, 0, 0, obj.in.params.BEAM_avg_velocity_beam, 0, 0]; %set v_x to avergae and set all particles to valve pos. (decc x=0)
 
-            xyzVxyz_0_l(1,:) = [-in_l.PHYS_valve_to_dec, 0, 0, 450, 0, 0]; % The first row is for a synchronous molecule
-            E_kin = ((0.5*((xyzVxyz_0_l(:, 4)).^2 + (xyzVxyz_0_l(:, 5)).^2 + (xyzVxyz_0_l(:, 6)).^2))-0.5*(xyzVxyz_0_l(1,4).^2 + xyzVxyz_0_l(1,5).^2 + xyzVxyz_0_l(1,6).^2))*1e-5;
-            sort_E_kin = [xyzVxyz_0_l, abs(E_kin)];
-            sort_E_kin = sortrows(sort_E_kin, 7);
-            xyzVxyz_0_l = sort_E_kin(:, 1:6);
-            obj.xyzVxyz_0 = xyzVxyz_0_l;
+            obj.xyzVxyz_0(1,:) = [-obj.in.params.PHYS_valve_to_dec, 0, 0, 450, 0, 0]; % The first row is for a synchronous molecule
+            E_kin=((0.5*((obj.xyzVxyz_0(:,4)).^2 + (obj.xyzVxyz_0(:,5)).^2 + (obj.xyzVxyz_0(:,6)).^2))-0.5*(obj.xyzVxyz_0(1,4).^2 + obj.xyzVxyz_0(1,5).^2 + obj.xyzVxyz_0(1,6).^2))*1e-5;           
+            sort_E_kin= [obj.xyzVxyz_0,abs(E_kin)];
+            sort_E_kin= sortrows(sort_E_kin,7);
+            obj.xyzVxyz_0=sort_E_kin(:,1:6);   
         end
 
-        
 %% Propagate particles, intergate using time intervals in M_time_vector, propagating all the molecules together
         function propagateParticles_euler(obj)
+            ax_norm_interpl = obj.in.ax_norm_interpl;
+            ay_norm_interpl = obj.in.ay_norm_interpl;
+            az_norm_interpl = obj.in.az_norm_interpl;
+            ax_norm_H_interpl =  obj.in.ax_norm_H_interpl;
+            ay_norm_H_interpl = obj.in.ay_norm_H_interpl;
+            az_norm_H_interpl = obj.in.az_norm_H_interpl;
+            
+            if obj.in.params.FLY_focusing_mode_bool
+                 ax_neg_interpl = obj.in.ax_neg_interpl;
+                 ay_neg_interpl = obj.in.ay_neg_interpl;
+                 az_neg_interpl = obj.in.az_neg_interpl;
+                 ax_neg_H_interpl = obj.in.ax_neg_H_interpl;
+                 ay_neg_H_interpl = obj.in.ay_neg_H_interpl;
+                 az_neg_H_interpl = obj.in.az_neg_H_interpl;
+                 ax_pos_interpl = obj.in.ax_pos_interpl;
+                 ay_pos_interpl = obj.in.ay_pos_interpl;
+                 az_pos_interpl = obj.in.az_pos_interpl;
+                 ax_pos_H_interpl = obj.in.ax_pos_H_interpl;
+                 ay_pos_H_interpl = obj.in.ay_pos_H_interpl;
+                 az_pos_H_interpl = obj.in.az_pos_H_interpl;
+            end
             
 %             a function that removes the lost molecules
             function [xyzVxyz,ind_particles] = removeHitParticles(xyzVxyz,ind_particles)
@@ -89,49 +92,45 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
                 xyzVxyz = xyzVxyz(hit_indices, :);
                 ind_particles = ind_particles(hit_indices);
             end
-
-                    
-
             
             % first propagate to entrance of decelerator
             obj.xyzVxyz = obj.xyzVxyz_0;
             obj.ind_particles = transpose(1:size(obj.xyzVxyz,1));
             obj.xyzVxyz(:,1:3) = obj.xyzVxyz(:,1:3) + obj.xyzVxyz(:,4:6) * obj.in.params.FLY_incoupling_time; % ekin at start of deacc.
             [obj.xyzVxyz,obj.ind_particles]= removeHitParticles(obj.xyzVxyz, obj.ind_particles );% select those that can enter dec
-%             hit_indices = obj.xyzVxyz(:,1) < obj.in.params.PHYS_length_dec & (abs(obj.xyzVxyz(:,2)) > obj.in.params.PHYS_seperation_pins/2 | abs(obj.xyzVxyz(:,3)) > obj.in.params.PHYS_seperation_pins/2);
+%             hit_indices = obj.xyzVxyz(:,1) < obj.params.PHYS_length_dec & (abs(obj.xyzVxyz(:,2)) > obj.params.PHYS_seperation_pins/2 | abs(obj.xyzVxyz(:,3)) > obj.params.PHYS_seperation_pins/2);
 %             obj.xyzVxyz = obj.xyzVxyz(~hit_indices,:);
 %             obj.xyzVxyz = obj.xyzVxyz((abs(obj.xyzVxyz(:,1) - obj.xyzVxyz(1,1)) < 2* 5.5e-3), :);
 
             % propagate inside dec
-            
             dt = 4e-8;
 %             fprintf("num/total switching\n");
             obj.Snapshot("start decelerator",obj.in.M_time_vec(1),obj.xyzVxyz, obj.ind_particles)
             if obj.in.params.FLY_focusing_mode_bool % focusing mode
-                dxyzVxyz = {@(y) [y(:, 4:6), obj.in.ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
-                                                 [0;obj.in.ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
-                                                 [0;obj.in.az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]                   
-                            @(y) [y(:, 4:6), obj.in.ax_neg_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
-                                                 [0;-obj.in.az_neg_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
-                                                 [0;obj.in.ay_neg_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
-                            @(y) [y(:, 4:6), obj.in.ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
-                                                 [0;-obj.in.az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
-                                                 [0;obj.in.ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
-                            @(y) [y(:, 4:6), obj.in.ax_pos_interpl(y(:, 1), y(:, 2), y(:, 3)),...
-                                                 [0;obj.in.ay_pos_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
-                                                 [0;obj.in.az_pos_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]
-                            @(y) [y(:, 4:6), obj.in.ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
-                                                 [0;obj.in.ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
-                                                 [0;obj.in.az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]
-                            @(y) [y(:, 4:6), obj.in.ax_pos_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
-                                                 [0;-obj.in.az_pos_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
-                                                 [0;obj.in.ay_pos_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
-                            @(y) [y(:, 4:6), obj.in.ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
-                                                 [0;-obj.in.az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
-                                                 [0;obj.in.ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
-                            @(y) [y(:, 4:6), obj.in.ax_neg_interpl(y(:, 1), y(:, 2), y(:, 3)),...
-                                                 [0;obj.in.ay_neg_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
-                                                 [0;obj.in.az_neg_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]};
+                dxyzVxyz = {@(y) [y(:, 4:6), ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]                   
+                            @(y) [y(:, 4:6), ax_neg_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-az_neg_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;ay_neg_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
+                            @(y) [y(:, 4:6), ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
+                            @(y) [y(:, 4:6), ax_pos_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;ay_pos_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;az_pos_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]
+                            @(y) [y(:, 4:6), ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]
+                            @(y) [y(:, 4:6), ax_pos_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-az_pos_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;ay_pos_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
+                            @(y) [y(:, 4:6), ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]
+                            @(y) [y(:, 4:6), ax_neg_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;ay_neg_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;az_neg_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]};
 
                 for i = 1:1: (length(obj.in.M_time_vec) - 2) %since free propagation is done with euler
                     if size(obj.xyzVxyz,1) == 0
@@ -145,12 +144,12 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
                 end
                 fprintf("%d out of %d particles left\n",size(obj.xyzVxyz,1), obj.num_particles);
             else    % normal mode
-                dxyzVxyz = {@(y) [y(:, 4:6), obj.in.ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
-                                                 [0;obj.in.ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
-                                                 [0;obj.in.az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]                   
-                            @(y) [y(:, 4:6), obj.in.ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
-                                                 [0;-obj.in.az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
-                                                 [0;obj.in.ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]};
+                dxyzVxyz = {@(y) [y(:, 4:6), ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...
+                                                 [0;ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
+                                                 [0;az_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))]]                   
+                            @(y) [y(:, 4:6), ax_norm_H_interpl(y(:, 1), y(:, 3), -y(:, 2)),...
+                                                 [0;-az_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))],...
+                                                 [0;ay_norm_H_interpl(y(2:end, 1), y(2:end, 3), -y(2:end, 2))]]};
                 
                 for i = 1: 1: (length(obj.in.M_time_vec) - 2)
                     if size(obj.xyzVxyz,1) == 0
@@ -166,22 +165,7 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
             end
             obj.Snapshot('end decelerator',t(end), obj.xyzVxyz, obj.ind_particles)
             obj.TOF()
-            if obj.in.verbose
-
-%                 figure()
-%                 subplot(2, 2, 1)
-%                 title('Time steps')
-%                 plot(times,'.')
-%                 xlabel('integration step'); ylabel('integration time step')
-%                 subplot(2, 2, 2)
-%                 title('number particles')
-%                 plot(num_par,'.')
-%                 xlabel('integration step'); ylabel('# particles')
-%                 subplot(2, 2, 3)
-%                 plot(num_par, times,'.')
-%                 xlabel('# partciles'); ylabel('integration time of step')
-% 
-              
+            if obj.in.verbose         
             obj.Snapshotplot()
           
             obj.xyzVxyz(:,1:3)=obj.xyzVxyz(:,1:3)+obj.xyzVxyz(:,4:6)*(obj.in.M_time_vec(end)-obj.in.M_time_vec(end-1));                                                            
@@ -196,16 +180,12 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
             figure;
             scatter(obj.xyzVxyz(:,1), obj.xyzVxyz(:,4));%this compares and plots the phase spaces of snapshot (maybe make function sow that it could take any number of netries not jsut 2 as now)
             end
-           
-                                                          
-                        
-            
+
 %           free propagation newton since velocity stays same thus
 %           only update xyz by using x_new= x_old + v_x*dt for x,y,zphase
-
-         
             
         end
+        
         
          %% Propagate particles, intergate using time intervals in M_time_vector, propagating all the molecules together
          function propagateParticles_ode45(obj,in_l)
@@ -298,6 +278,7 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
                     obj.xyzVxyz = reshape(y(end,:), [], 6);
                     [obj.xyzVxyz,obj.ind_particles]= removeHitParticles(obj.xyzVxyz,obj.ind_particles);
                 end
+                fprintf("%d out of %d particles left\n",size(obj.xyzVxyz,1), obj.num_particles);
                 toc
             end
             obj.Snapshot('end decelerator',t(end), obj.xyzVxyz, obj.ind_particles)
@@ -744,58 +725,6 @@ classdef SetOfParticles < handle  % handle makes it works more like a Python cla
             legend('start', 'end')
             hold off
             xlabel('z_{pos.} (m)'), ylabel('v_z (m/s)')
-
-
-            
-
-            
-%             figure()
-%             subplot(2,3,1)
-%             title('Phase space x,v_x start')
-%             hold on 
-%             plot(obj.output{1,3}(:,1)*10^3,obj.output{1,3}(:,4)*10^3, '.')
-%             plot(obj.output{1,3}(1,1)*10^3,obj.output{1,3}(1,4)*10^3,'.r')
-%             hold off
-%             xlabel('x_{pos.} (mm)'), ylabel('v_x (m/s)')
-%             subplot(2,3,2)
-%             title('Phase space y,v_y start')
-%             hold on 
-%             plot(obj.output{1,3}(:,2)*10^3,obj.output{1,3}(:,5)*10^3, '.')
-%             plot(obj.output{1,3}(1,2)*10^3,obj.output{1,3}(1,5)*10^3,'.r')
-%             hold off
-%             xlabel('y_{pos.} (mm)'), ylabel('v_y (m/s)')
-%             subplot(2,3,3)
-%             title('Phase space z, v_z start')
-%             hold on 
-%             plot(obj.output{1,3}(:,3)*10^3,obj.output{1,3}(:,6)*10^3, '.')
-%             plot(obj.output{1,3}(1,3)*10^3,obj.output{1,3}(1,6)*10^3,'.r')
-%             hold off
-%             xlabel('z_{pos.} (mm)'), ylabel('v_z (m/s)')
-%             subplot(2,3,4)
-%             title('Phase space x, v_x end')
-%             hold on 
-%             plot(obj.output{2,3}(:,1)*10^3,obj.output{2,3}(:,4)*10^3, '.')
-%             plot(obj.output{2,3}(1,1)*10^3,obj.output{2,3}(1,4)*10^3,'.r')
-%             hold off
-%             xlabel('x_{pos.} (mm)'), ylabel('v_x (m/s)')
-%             subplot(2,3,5)
-%             title('Phase space y, v_y end')
-%             hold on 
-%             plot(obj.output{2,3}(:,2)*10^3,obj.output{2,3}(:,5)*10^3, '.')
-%             plot(obj.output{2,3}(1,2)*10^3,obj.output{2,3}(1,5)*10^3,'.r')
-%             hold off
-%             xlabel('y_{pos.} (mm)'), ylabel('v_y (m/s)')
-%             subplot(2,3,6)
-%             title('Phase space z, v_z end')
-%             hold on 
-%             plot(obj.output{2,3}(:,3)*10^3,obj.output{2,3}(:,6)*10^3, '.')
-%             plot(obj.output{2,3}(1,3)*10^3,obj.output{2,3}(1,6)*10^3,'.r')
-%             hold off
-%             xlabel('z_{pos.} (mm)'), ylabel('v_z (m/s)')
-
-
-            
-
         end
 
         function [h,area,TOF_cut]=gain_TOF(obj) % save max TOF as well as area to compare gfain factor to experiment
