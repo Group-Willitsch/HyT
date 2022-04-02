@@ -17,6 +17,7 @@
 *.csv
 *.xls
 *.h5 # common data structure file
+.out # sequences files
 
 # exec and compiled code
 *.exe 
