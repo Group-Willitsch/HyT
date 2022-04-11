@@ -12,12 +12,8 @@ classdef InputParameters < handle
         
         ax_norm_extended, ay_norm_extended, az_norm_extended
         ax_norm_interpl,ay_norm_interpl,az_norm_interpl
-        ax_norm_H_interpl, ay_norm_H_interpl, az_norm_H_interpl
         ax_neg_extended, ay_neg_extended, az_neg_extended
         ax_neg_interpl,ay_neg_interpl,az_neg_interpl
-        ax_neg_H_interpl, ay_neg_H_interpl, az_neg_H_interpl
-        ax_pos_interpl,ay_pos_interpl,az_pos_interpl
-        ax_pos_H_interpl, ay_pos_H_interpl, az_pos_H_interpl
 
         % FORTRAN trigger sequence imported from the T2Jumps files
         T2Jump_time_vec, T2Jump_trigger_pattern, T2Jump_stage_number 
@@ -224,11 +220,7 @@ classdef InputParameters < handle
             obj.ax_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ax_norm_extended,'linear', 'linear');
             obj.ay_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_norm_extended,'linear', 'linear');
             obj.az_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.az_norm_extended,'linear', 'linear');
-            
-            obj.ax_norm_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, -flip(obj.ax_norm_extended,1),'linear', 'linear');
-            obj.ay_norm_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(obj.ay_norm_extended,1),'linear', 'linear');
-            obj.az_norm_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(obj.az_norm_extended,1),'linear', 'linear');
-            
+
             if obj.params.FLY_focusing_mode_bool
                 obj.ax_neg_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
                 obj.ay_neg_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
@@ -240,18 +232,6 @@ classdef InputParameters < handle
                 obj.ax_neg_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ax_neg_extended,'linear', 'linear');
                 obj.ay_neg_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_neg_extended,'linear', 'linear');
                 obj.az_neg_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.az_neg_extended,'linear', 'linear');
-
-                obj.ax_neg_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, -flip(obj.ax_neg_extended,1),'linear', 'linear');
-                obj.ay_neg_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(obj.ay_neg_extended,1),'linear', 'linear');
-                obj.az_neg_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(obj.az_neg_extended,1),'linear', 'linear');
-                
-                obj.ax_pos_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(obj.ax_neg_extended,3),'linear', 'linear');
-                obj.ay_pos_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(obj.ay_neg_extended,3),'linear', 'linear');
-                obj.az_pos_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, -flip(obj.az_neg_extended,3),'linear', 'linear');
-
-                obj.ax_pos_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, -flip(flip(obj.ax_neg_extended,3),1),'linear', 'linear');
-                obj.ay_pos_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(flip(obj.ay_neg_extended,3),1),'linear', 'linear');
-                obj.az_pos_H_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, flip(-flip(obj.az_neg_extended,3),1),'linear', 'linear');
             end    
         end
         
