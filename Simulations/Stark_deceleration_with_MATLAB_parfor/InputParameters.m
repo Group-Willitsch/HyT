@@ -107,9 +107,9 @@ classdef InputParameters < handle
             % Parameters used for the molecular beam
             obj.params.BEAM_avg_velocity_beam = 480; % Average velocity incoming package (m/s) 
             obj.params.BEAM_radius_of_nozzle = 0.25e-3; % radius of the valve nozzle (m)
-            obj.params.BEAM_long_pos_spread = 11.5e-3; % ????? longitudinal position spread (m) - along x aixs or beam propagation
+            obj.params.BEAM_long_pos_spread = 11.5e-3; %  longitudinal position spread (m) - along x aixs or beam propagation
             obj.params.BEAM_long_vel_spread = 0.2*obj.params.BEAM_avg_velocity_beam ; % relative velocity spread along beam axis 0.112 0.12
-            obj.params.BEAM_trans_velocity_HWHM= 0.01*obj.params.BEAM_avg_velocity_beam; %5; % will be 15 or 25 in the end, arbitrary was not measured velocity spread perp. to beam axis/average velocity 0.10
+            obj.params.BEAM_trans_velocity_HWHM= 0.01*obj.params.BEAM_avg_velocity_beam; %as longs as it is greater than 0.008*obj.params.BEAM_avg_velocity_beam, it will reproduce the same distribution.
 
             % Parameters used in fly and in the simulation
             obj.params.FLY_incoupling_time = obj.params.PHYS_valve_to_dec/obj.params.CALC_vel_synch_mol; %710.2e-6; % valve - decelerator incoupling time (s)
