@@ -39,7 +39,8 @@ classdef InputParameters < handle
         traj_time                       % ?????
         ind_particles                 % index of particles created at begining saving the indexes of the ones that make it to the end
         TOF_xyzVxyz                   % Time of Flight: variable to save xyzVxyz at the time step/steps of detetcion
-        TOF_save     
+        TOF_save
+        TOF_profile
     end
 
     methods
@@ -87,9 +88,8 @@ classdef InputParameters < handle
             obj.params.PHYS_valve_to_skimmer = 253.0e-3; % LA Nozzle to skimmer (m)
             obj.params.PHYS_skimmer_radius = 1.5e-3; %	r_s radius skimmer (m)
             obj.params.PHYS_skimmer_to_dec = 66.6e-3; % LB Skimmer to Hexapole or Decelerator (m)
-            obj.params.PHYS_exit_to_detection = 11.52e-3; %L4 last stage decelerator to detection (m) % set to 10.2 mm 
+            obj.params.PHYS_exit_to_detection = 10.2e-3;%11.52e-3; %L4 last stage decelerator to detection (m) % set to 10.2 mm 
             obj.params.PHYS_number_of_electrodes = 123; % nt (Number of electrodes in dec.-1) size!! 
-            obj.params.PHYS_number_of_switching_times = 124; %# switching times in decelerator
             obj.params.PHYS_distance_stages = (obj.params.SIMION_nend - obj.params.SIMION_nbegin)/obj.params.SIMION_grid_units_p_meter; % distance between two stages, 5.5 mm
             obj.params.PHYS_valve_to_dec = obj.params.PHYS_valve_to_skimmer + obj.params.PHYS_skimmer_to_dec;
             obj.params.PHYS_length_dec = obj.params.PHYS_distance_stages * obj.params.PHYS_number_of_electrodes; % total length of decelerator
@@ -108,8 +108,8 @@ classdef InputParameters < handle
             obj.params.BEAM_avg_velocity_beam = 480; % Average velocity incoming package (m/s) 
             obj.params.BEAM_radius_of_nozzle = 0.25e-3; % radius of the valve nozzle (m)
             obj.params.BEAM_long_pos_spread = 11.5e-3; % ????? longitudinal position spread (m) - along x aixs or beam propagation
-            obj.params.BEAM_long_vel_spread = 0.13*obj.params.BEAM_avg_velocity_beam ; % relative velocity spread along beam axis 0.112 0.12
-            obj.params.BEAM_trans_velocity_spread = 5; % will be 15 or 25 in the end, arbitrary was not measured velocity spread perp. to beam axis/average velocity 0.10
+            obj.params.BEAM_long_vel_spread = 0.2*obj.params.BEAM_avg_velocity_beam ; % relative velocity spread along beam axis 0.112 0.12
+            obj.params.BEAM_trans_velocity_HWHM= 0.01*obj.params.BEAM_avg_velocity_beam; %5; % will be 15 or 25 in the end, arbitrary was not measured velocity spread perp. to beam axis/average velocity 0.10
 
             % Parameters used in fly and in the simulation
             obj.params.FLY_incoupling_time = obj.params.PHYS_valve_to_dec/obj.params.CALC_vel_synch_mol; %710.2e-6; % valve - decelerator incoupling time (s)
@@ -198,7 +198,7 @@ classdef InputParameters < handle
         
         %% Interpolate acceleration field
         function InterpolateAccField(obj)
-            num_grids_x = 111 + 110 * 122 + 4;
+            num_grids_x = 111 + 110 * (obj.params.PHYS_number_of_electrodes - 1) + 4;
             num_grids_y = 41 + 4;
             num_grids_z = 41 + 4;
             gridded_x = linspace(-2/obj.params.SIMION_grid_units_p_meter, obj.params.PHYS_length_dec + 2/obj.params.SIMION_grid_units_p_meter, num_grids_x);
@@ -208,9 +208,9 @@ classdef InputParameters < handle
             obj.ax_norm_extended = zeros(num_grids_x, num_grids_y, num_grids_z); %Vertical ones
             obj.ay_norm_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
             obj.az_norm_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-            obj.ax_norm_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.ax_norm, flip(-obj.ax_norm(2:110,:,:),1)), 61, 1, 1), obj.ax_norm);  % before  obj.ax_norm_extended(11:num_grids_x-10,11:51,11:51) = cat(1, repmat(cat(1,obj.ax_norm, flip(-obj.ax_norm(22:130,:,:),1)), 61, 1, 1), obj.ax_norm);
-            obj.ay_norm_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.ay_norm, flip(obj.ay_norm(2:110,:,:),1)), 61, 1, 1), obj.ay_norm);
-            obj.az_norm_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.az_norm, flip(obj.az_norm(2:110,:,:),1)), 61, 1, 1), obj.az_norm);
+            obj.ax_norm_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.ax_norm, flip(-obj.ax_norm(2:110,:,:),1)), (obj.params.PHYS_number_of_electrodes - 1)/2, 1, 1), obj.ax_norm);
+            obj.ay_norm_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.ay_norm, flip(obj.ay_norm(2:110,:,:),1)), (obj.params.PHYS_number_of_electrodes - 1)/2, 1, 1), obj.ay_norm);
+            obj.az_norm_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.az_norm, flip(obj.az_norm(2:110,:,:),1)), (obj.params.PHYS_number_of_electrodes - 1)/2, 1, 1), obj.az_norm);
             
             obj.ax_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ax_norm_extended,'linear','linear');
             obj.ay_norm_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_norm_extended,'linear','linear');
@@ -220,9 +220,9 @@ classdef InputParameters < handle
                 obj.ax_neg_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
                 obj.ay_neg_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
                 obj.az_neg_extended = zeros(num_grids_x, num_grids_y, num_grids_z);
-                obj.ax_neg_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.ax_neg, flip(-obj.ax_neg(2:110,:,:),1)), 61, 1, 1), obj.ax_neg);
-                obj.ay_neg_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.ay_neg, flip(obj.ay_neg(2:110,:,:),1)), 61, 1, 1), obj.ay_neg);
-                obj.az_neg_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.az_neg, flip(obj.az_neg(2:110,:,:),1)), 61, 1, 1), obj.az_neg);
+                obj.ax_neg_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.ax_neg, flip(-obj.ax_neg(2:110,:,:),1)), (obj.params.PHYS_number_of_electrodes - 1)/2, 1, 1), obj.ax_neg);
+                obj.ay_neg_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.ay_neg, flip(obj.ay_neg(2:110,:,:),1)), (obj.params.PHYS_number_of_electrodes - 1)/2, 1, 1), obj.ay_neg);
+                obj.az_neg_extended(3:num_grids_x-2,3:43,3:43) = cat(1, repmat(cat(1,obj.az_neg, flip(obj.az_neg(2:110,:,:),1)), (obj.params.PHYS_number_of_electrodes - 1)/2, 1, 1), obj.az_neg);
                 
                 obj.ax_neg_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ax_neg_extended,'linear','linear');
                 obj.ay_neg_interpl = griddedInterpolant({gridded_x, gridded_y, gridded_z}, obj.ay_neg_extended,'linear','linear');
@@ -460,7 +460,7 @@ classdef InputParameters < handle
             
             % save the .out file for the experiment
             seq_file = fopen(obj.M_sequence_path,'w'); % will fail if folder does not exists
-            fprintf(seq_file,"#vx_i=%.1f m/s\n#vx_f=%.1f m/s\n#phase=%.2f deg\n#\n",obj.params.FLY_target_velocity, obj.M_synch_velocity(end), obj.params.CALC_phase_degrees);
+            fprintf(seq_file,"#vx_i=%.1f m/s\n#vx_f=%.1f m/s\n#phase=%.2f deg\n#\n",obj.params.CALC_vel_synch_mol, obj.M_synch_velocity(end), obj.params.CALC_phase_degrees);
             fprintf(seq_file, '%s\t%s\n', [ string( round( obj.M_time_vec*1e9)+1010 ), obj.M_trigger_pattern]' );
             fprintf(seq_file,"#\n#\n#\n");
             fclose(seq_file);
@@ -581,7 +581,6 @@ classdef InputParameters < handle
                     obj.fortran_seq_bool = false;
                 end
             end 
-
 
             % re-load Matlab sequence if exists, otherwise re-generate it
             if obj.checkIfMatlabSequenceAlreadyExists && ~obj.always_generate_M_seq % if the Matlab sequence already exists, just load it
@@ -944,30 +943,50 @@ classdef InputParameters < handle
         
           %% create particles
 %         
-        function createParticles(obj)
-            rng('default') % fix the seed of the random nunber generator to bremoved afterwards
-            obj.xyzVxyz_0 = randn(obj.num_particles, 6)/sqrt(8*log(2)).*... %conversion factor to std from full width half max, below adjust normal dist. to represent particles
-                [obj.params.BEAM_long_pos_spread, obj.params.BEAM_radius_of_nozzle, obj.params.BEAM_radius_of_nozzle,...                            
-                 obj.params.BEAM_long_vel_spread, obj.params.BEAM_trans_velocity_spread, obj.params.BEAM_trans_velocity_spread] + ...
-                [-obj.params.PHYS_valve_to_dec, 0, 0, obj.params.BEAM_avg_velocity_beam, 0, 0]; %set v_x to avergae and set all particles to valve pos. (decc x=0)
+%         function createParticles(obj)
+%             rng('default') % fix the seed of the random nunber generator to bremoved afterwards
+%             obj.xyzVxyz_0 = randn(obj.num_particles, 6)/sqrt(8*log(2)).*... %conversion factor to std from full width half max, below adjust normal dist. to represent particles
+%                 [obj.params.BEAM_long_pos_spread, obj.params.BEAM_radius_of_nozzle, obj.params.BEAM_radius_of_nozzle,...                            
+%                  obj.params.BEAM_long_vel_spread, obj.params.BEAM_trans_velocity_spread, obj.params.BEAM_trans_velocity_spread] + ...
+%                 [-obj.params.PHYS_valve_to_dec, 0, 0, obj.params.BEAM_avg_velocity_beam, 0, 0]; %set v_x to avergae and set all particles to valve pos. (decc x=0)
+% 
+%             obj.xyzVxyz_0(1,:) = [-obj.params.PHYS_valve_to_dec, 0, 0, obj.params.BEAM_avg_velocity_beam, 0, 0]; % The first row is for a synchronous molecule
+% %             E_kin=((0.5*((obj.xyzVxyz_0(:,4)).^2 + (obj.xyzVxyz_0(:,5)).^2 + (obj.xyzVxyz_0(:,6)).^2))-0.5*(obj.xyzVxyz_0(1,4).^2 + obj.xyzVxyz_0(1,5).^2 + obj.xyzVxyz_0(1,6).^2))*1e-5;           
+% %             sort_E_kin= [obj.xyzVxyz_0,abs(E_kin)];
+% %             sort_E_kin= sortrows(sort_E_kin,7);
+% %             obj.xyzVxyz_0=sort_E_kin(:,1:6);   
+%         end
 
-            obj.xyzVxyz_0(1,:) = [-obj.params.PHYS_valve_to_dec, 0, 0, 450, 0, 0]; % The first row is for a synchronous molecule
-%             E_kin=((0.5*((obj.xyzVxyz_0(:,4)).^2 + (obj.xyzVxyz_0(:,5)).^2 + (obj.xyzVxyz_0(:,6)).^2))-0.5*(obj.xyzVxyz_0(1,4).^2 + obj.xyzVxyz_0(1,5).^2 + obj.xyzVxyz_0(1,6).^2))*1e-5;           
-%             sort_E_kin= [obj.xyzVxyz_0,abs(E_kin)];
-%             sort_E_kin= sortrows(sort_E_kin,7);
-%             obj.xyzVxyz_0=sort_E_kin(:,1:6);   
+          function createParticles(obj)
+          % This function can create particles with the same phase-space
+          % distribution as the Fortran code, as longs as
+          % obj.params.BEAM_trans_velocity_HWHM > 0.008*obj.params.BEAM_avg_velocity_beam.
+              
+            rng('default') % fix the seed of the random nunber generator to be removed afterwards
+            obj.xyzVxyz_0 = [];
+            while size(obj.xyzVxyz_0, 1) < obj.num_particles
+                trial_num_particles = obj.num_particles * 3;
+                xVx_0 = randn(trial_num_particles, 2)/sqrt(8*log(2)).* [obj.params.BEAM_long_pos_spread, obj.params.BEAM_long_vel_spread] + [-obj.params.PHYS_valve_to_dec, obj.params.BEAM_avg_velocity_beam]; %conversion factor to std from full width half max, below adjust normal dist. to represent particles %set v_x to avergae and set all particles to valve pos. (decc x=0)
+                rAVrB = rand(trial_num_particles, 4).*[obj.params.BEAM_radius_of_nozzle.^2, 2*pi, (obj.params.BEAM_trans_velocity_HWHM).^2, 2*pi]; % produce radom transverse positions and azimuthal angles, and then project to y and z axis
+                yzVyz_0 = [sqrt(rAVrB(:,1)).* cos(rAVrB(:,2)), sqrt(rAVrB(:,1)).* sin(rAVrB(:,2)), sqrt(rAVrB(:,3)).* cos(rAVrB(:,4)), sqrt(rAVrB(:,3)).* sin(rAVrB(:,4))];
+                xyzVxyz_0 = [xVx_0(:,1),yzVyz_0(:,1), yzVyz_0(:,2), xVx_0(:,2),yzVyz_0(:,3), yzVyz_0(:,4)];
+                xyzVxyz_0 = xyzVxyz_0((xyzVxyz_0(:,2) + xyzVxyz_0(:,5).*(-obj.params.PHYS_skimmer_to_dec - xyzVxyz_0(:,1))./xyzVxyz_0(:,4)).^2 + (xyzVxyz_0(:,3) + xyzVxyz_0(:,6).*(-obj.params.PHYS_skimmer_to_dec - xyzVxyz_0(:,1))./xyzVxyz_0(:,4)).^2 <= obj.params.PHYS_skimmer_radius^2, :);
+                obj.xyzVxyz_0 = [obj.xyzVxyz_0; xyzVxyz_0];
+%                 size(obj.xyzVxyz_0, 1)
+            end
+            obj.xyzVxyz_0 = obj.xyzVxyz_0(1:obj.num_particles, :);
+            obj.xyzVxyz_0(1,:) = [-obj.params.PHYS_valve_to_dec, 0, 0, obj.params.CALC_vel_synch_mol, 0, 0]; % The first row is for a synchronous molecule
         end
 
         
 %% Propagate particles, intergate using time intervals in M_time_vector, propagating all the molecules together
         function propagateParticles_euler(obj)
-%             obj.num_particles = 100000;
+            
             obj.createParticles();
             
             ax_norm_interpl = obj.ax_norm_interpl;
             ay_norm_interpl = obj.ay_norm_interpl;
             az_norm_interpl = obj.az_norm_interpl;
-
             if obj.params.FLY_focusing_mode_bool
                  ax_neg_interpl = obj.ax_neg_interpl;
                  ay_neg_interpl = obj.ay_neg_interpl;
@@ -981,10 +1000,9 @@ classdef InputParameters < handle
             obj.xyzVxyz = obj.xyzVxyz(abs(obj.xyzVxyz(:,2)) < 0.001 & abs(obj.xyzVxyz(:,3)) < 0.001 & (abs(obj.xyzVxyz(:,1) - obj.xyzVxyz(1,1)) < 2* 5.5e-3), :);
 
             % propagate inside dec
-            
             dt = 4e-8;
 %             fprintf("num/total switching\n");
-            obj.Snapshot("start decelerator",obj.M_time_vec(1),obj.xyzVxyz, obj.ind_particles)
+%             obj.Snapshot("start decelerator",obj.M_time_vec(1),obj.xyzVxyz, obj.ind_particles)
             if obj.params.FLY_focusing_mode_bool % focusing mode
                 dxyzVxyz = {@(y) [y(:, 4:6), ax_norm_interpl(y(:, 1), y(:, 2), y(:, 3)),...                               % norm vertical
                                                  [0;ay_norm_interpl(y(2:end, 1), y(2:end, 2), y(2:end, 3))],...
@@ -1042,22 +1060,26 @@ classdef InputParameters < handle
                 end
                 fprintf("%d out of %d particles left\n",size(obj.xyzVxyz,1), obj.num_particles);
             end
-            obj.Snapshot('end decelerator',t(end), obj.xyzVxyz, obj.ind_particles)
-            obj.TOF()
-            if obj.verbose         
-            obj.Snapshotplot()
-          
-            obj.xyzVxyz(:,1:3)=obj.xyzVxyz(:,1:3)+obj.xyzVxyz(:,4:6)*(obj.M_time_vec(end)-obj.M_time_vec(end-1));                                                            
-            figure();
-            scatter(obj.xyzVxyz(:,1)*10^3, obj.xyzVxyz(:,4));  %scatter(x,y) creates a scatter plot with circular markers at the locations specified by the vectors x and y.
-            xlabel('x-pos (mm)'); ylabel('v_x (m/s)');
             
-            figure;
-            obj.arrival_time = t(end) - (obj.xyzVxyz(:,1) - obj.params.PHYS_length_dec - obj.params.PHYS_exit_to_detection)./(obj.xyzVxyz(:,4)) + obj.params.FLY_incoupling_time;
-            histogram(obj.arrival_time, 100);xlabel('time(s)')
+%             obj.Snapshot('end decelerator',t(end), obj.xyzVxyz, obj.ind_particles)
+%             obj.TOF()
+            
+            if obj.verbose         
+                obj.Snapshotplot()
+                
+                xyzVxyz = obj.xyzVxyz;
+                xyzVxyz(:,1:3)=xyzVxyz(:,1:3)+xyzVxyz(:,4:6)*(obj.M_time_vec(end)-obj.M_time_vec(end-1));                                                            
+                figure();
+                scatter(xyzVxyz(:,1)*10^3, xyzVxyz(:,4));  %scatter(x,y) creates a scatter plot with circular markers at the locations specified by the vectors x and y.
+                xlabel('x-pos (mm)'); ylabel('v_x (m/s)');
+                
+                figure;
+                arrival_time = obj.M_time_vec(end) - (xyzVxyz(:,1) - obj.params.PHYS_length_dec - obj.params.PHYS_exit_to_detection)./(xyzVxyz(:,4)) + obj.params.FLY_incoupling_time;
+                size(arrival_time)
+                histogram(arrival_time, 100);xlabel('time(s)')
 
-            figure;
-            scatter(obj.xyzVxyz(:,1), obj.xyzVxyz(:,4));%this compares and plots the phase spaces of snapshot (maybe make function sow that it could take any number of netries not jsut 2 as now)
+                figure;
+                scatter(xyzVxyz(:,1), xyzVxyz(:,4));%this compares and plots the phase spaces of snapshot (maybe make function sow that it could take any number of netries not jsut 2 as now)
             end
 
 %           free propagation newton since velocity stays same thus
@@ -1070,9 +1092,6 @@ classdef InputParameters < handle
          function propagateParticles_ode45(obj)
              
              obj.createParticles();
-             
-             % make local variables of interpolations improves running speed
-             %a  bit
 
              ax_norm_interpl= obj.ax_norm_interpl;
              ay_norm_interpl= obj.ay_norm_interpl;
@@ -1172,29 +1191,15 @@ classdef InputParameters < handle
 
         
         function propagateParticlesAndSaveTrajectories(obj)
-             ax_norm_interpl= obj.ax_norm_interpl;
-             ay_norm_interpl= obj.ay_norm_interpl;
-             az_norm_interpl= obj.az_norm_interpl;
-
-             ax_norm_H_interpl = obj.ax_norm_H_interpl;
-             ay_norm_H_interpl = obj.ay_norm_H_interpl;
-             az_norm_H_interpl = obj.az_norm_H_interpl;
-
-             ax_neg_interpl = obj.ax_neg_interpl;
-             ay_neg_interpl = obj.ay_neg_interpl;
-             az_neg_interpl = obj.az_neg_interpl;
-
-             ax_neg_H_interpl = obj.ax_neg_H_interpl;
-             ay_neg_H_interpl = obj.ay_neg_H_interpl;
-             az_neg_H_interpl = obj.az_neg_H_interpl;
-
-             ax_pos_interpl = obj.ax_pos_interpl;
-             ay_pos_interpl = obj.ay_pos_interpl;
-             az_pos_interpl = obj.az_pos_interpl;
-             
-             ax_pos_H_interpl = obj.ax_pos_H_interpl;
-             ay_pos_H_interpl = obj.ay_pos_H_interpl;
-             az_pos_H_interpl = obj.az_pos_H_interpl;
+            
+            obj.createParticles();
+            
+            ax_norm_interpl= obj.ax_norm_interpl;
+            ay_norm_interpl= obj.ay_norm_interpl;
+            az_norm_interpl= obj.az_norm_interpl;
+            ax_neg_interpl = obj.ax_neg_interpl;
+            ay_neg_interpl = obj.ay_neg_interpl;
+            az_neg_interpl = obj.az_neg_interpl;
             % a function that remove the lost molecules
             function xyzVxyz = removeHitParticles(y)
                 xyzVxyz = reshape(y(end,:), [], 6);
@@ -1273,28 +1278,52 @@ classdef InputParameters < handle
 
             obj.arrival_time = t(end) - (obj.xyzVxyz(:,1) - obj.params.PHYS_length_dec - obj.params.PHYS_exit_to_detection)./(obj.xyzVxyz(:,4)) + obj.params.FLY_incoupling_time;
             
+%             function dydt = dydtNormVerticalOn(t,y,n)
+%              dydt = [y(3*n+1:end); ax_norm_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); [0;ay_norm_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]; [0; az_norm_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]];
+%             end
+% 
+%             function dydt = dydtNormHorizontalOn(t,y,n)
+%              dydt = [y(3*n+1:end); -ax_norm_interpl(obj.params.PHYS_length_dec -y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); [0;-az_norm_interpl(obj.params.PHYS_length_dec -y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]; [0;ay_norm_interpl(obj.params.PHYS_length_dec -y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]];
+%             end
+% 
+%             function dydt = dydtNegVerticalOn(t,y,n)
+%              dydt = [y(3*n+1:end); ax_neg_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); [0; ay_neg_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]; [0; az_neg_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]];
+%             end
+% 
+%             function dydt = dydtNegHorizontalOn(t,y,n)
+%              dydt = [y(3*n+1:end); -ax_neg_interpl(obj.params.PHYS_length_dec - y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); [0; -az_neg_interpl(obj.params.PHYS_length_dec - y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]; [0; ay_neg_interpl(obj.params.PHYS_length_dec - y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]];
+%             end
+% 
+%             function dydt = dydtPosVerticalOn(t,y,n)
+%              dydt = [y(3*n+1:end); ax_neg_interpl(y(1:n), y(n+1:2*n), -y(2*n+1:3*n)); [0; ay_neg_interpl(y(2:n), y(n+2:2*n), -y(2*n+2:3*n))]; [0; -az_neg_interpl(y(2:n), y(n+2:2*n), -y(2*n+2:3*n))]];
+%             end
+%             function dydt = dydtPosHorizontalOn(t,y,n)
+%              dydt = [y(3*n+1:end); -ax_neg_interpl(obj.params.PHYS_length_dec -y(1:n), y(2*n+1:3*n), y(n+1:2*n)); [0;az_neg_interpl(obj.params.PHYS_length_dec -y(2:n), y(2*n+2:3*n), y(n+2:2*n))]; [0; ay_neg_interpl(obj.params.PHYS_length_dec -y(2:n), y(2*n+2:3*n), y(n+2:2*n))]];
+%             end
+
             function dydt = dydtNormVerticalOn(t,y,n)
-                 dydt = [y(3*n+1:end); ax_norm_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); [0;ay_norm_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]; [0; az_norm_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]];
-             end
+             dydt = [y(3*n+1:end); ax_norm_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); ay_norm_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); az_norm_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n))];
+            end
 
-             function dydt = dydtNormHorizontalOn(t,y,n)
-                 dydt = [y(3*n+1:end); -ax_norm_interpl(obj.params.PHYS_length_dec -y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); [0;-az_norm_interpl(obj.params.PHYS_length_dec -y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]; [0;ay_norm_interpl(obj.params.PHYS_length_dec -y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]];
-             end
+            function dydt = dydtNormHorizontalOn(t,y,n)
+             dydt = [y(3*n+1:end); -ax_norm_interpl(obj.params.PHYS_length_dec -y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); -az_norm_interpl(obj.params.PHYS_length_dec -y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); ay_norm_interpl(obj.params.PHYS_length_dec -y(1:n), y(2*n+1:3*n), -y(n+1:2*n))];
+            end
 
-             function dydt = dydtNegVerticalOn(t,y,n)
-                 dydt = [y(3*n+1:end); ax_neg_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); [0; ay_neg_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]; [0; az_neg_interpl(y(2:n), y(n+2:2*n), y(2*n+2:3*n))]];
-             end
+            function dydt = dydtNegVerticalOn(t,y,n)
+             dydt = [y(3*n+1:end); ax_neg_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n)); ay_neg_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n));  az_neg_interpl(y(1:n), y(n+1:2*n), y(2*n+1:3*n))];
+            end
 
-             function dydt = dydtNegHorizontalOn(t,y,n)
-                 dydt = [y(3*n+1:end); -ax_neg_interpl(obj.params.PHYS_length_dec - y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); [0; -az_neg_interpl(obj.params.PHYS_length_dec - y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]; [0; ay_neg_interpl(obj.params.PHYS_length_dec - y(2:n), y(2*n+2:3*n), -y(n+2:2*n))]];
-             end
+            function dydt = dydtNegHorizontalOn(t,y,n)
+             dydt = [y(3*n+1:end); -ax_neg_interpl(obj.params.PHYS_length_dec - y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); -az_neg_interpl(obj.params.PHYS_length_dec - y(1:n), y(2*n+1:3*n), -y(n+1:2*n)); ay_neg_interpl(obj.params.PHYS_length_dec - y(1:n), y(2*n+1:3*n), -y(n+1:2*n))];
+            end
 
-             function dydt = dydtPosVerticalOn(t,y,n)
-                 dydt = [y(3*n+1:end); ax_neg_interpl(y(1:n), y(n+1:2*n), -y(2*n+1:3*n)); [0; ay_neg_interpl(y(2:n), y(n+2:2*n), -y(2*n+2:3*n))]; [0; -az_neg_interpl(y(2:n), y(n+2:2*n), -y(2*n+2:3*n))]];
-             end
-             function dydt = dydtPosHorizontalOn(t,y,n)
-                 dydt = [y(3*n+1:end); -ax_neg_interpl(obj.params.PHYS_length_dec -y(1:n), y(2*n+1:3*n), y(n+1:2*n)); [0;az_neg_interpl(obj.params.PHYS_length_dec -y(2:n), y(2*n+2:3*n), y(n+2:2*n))]; [0; ay_neg_interpl(obj.params.PHYS_length_dec -y(2:n), y(2*n+2:3*n), y(n+2:2*n))]];
-             end
+            function dydt = dydtPosVerticalOn(t,y,n)
+             dydt = [y(3*n+1:end); ax_neg_interpl(y(1:n), y(n+1:2*n), -y(2*n+1:3*n)); ay_neg_interpl(y(1:n), y(n+1:2*n), -y(2*n+1:3*n)); -az_neg_interpl(y(1:n), y(n+1:2*n), -y(2*n+1:3*n))];
+            end
+            function dydt = dydtPosHorizontalOn(t,y,n)
+             dydt = [y(3*n+1:end); -ax_neg_interpl(obj.params.PHYS_length_dec -y(1:n), y(2*n+1:3*n), y(n+1:2*n)); az_neg_interpl(obj.params.PHYS_length_dec -y(1:n), y(2*n+1:3*n), y(n+1:2*n)); ay_neg_interpl(obj.params.PHYS_length_dec -y(1:n), y(2*n+1:3*n), y(n+1:2*n))];
+            end
+
         end
         
         function plotTrajectories(obj)
@@ -1358,26 +1387,49 @@ classdef InputParameters < handle
         
         %% Plot time-of-flight signal
         function plotTOF(obj)
-            min_time = 0; max_time = 10e-3;
+            
+            xyzVxyz=obj.xyzVxyz;
+            xyzVxyz(:,1:3)=xyzVxyz(:,1:3)+xyzVxyz(:,4:6)*(obj.M_time_vec(end)-obj.M_time_vec(end-1));                                                           
+            obj.arrival_time = obj.M_time_vec(end) - (xyzVxyz(:,1) - obj.params.PHYS_length_dec - obj.params.PHYS_exit_to_detection)./(xyzVxyz(:,4)) + obj.params.FLY_incoupling_time;
+%             figure;histogram(obj.arrival_time);
+            min_time = 0; max_time = 6e-3;
             num_bins = 6000;
             binsize = (max_time - min_time)/num_bins;
             tof_profile = zeros(num_bins,1);
             
-            
-            obj.arrival_time = obj.arrival_time(abs(obj.xyzVxyz(:,2)) < obj.params.FLY_detection_laser_diameter/2 & abs(obj.xyzVxyz(:,3)) < 2e-3);
-            bin_begin_each_particle = int16((obj.arrival_time - obj.params.FLY_detection_laser_diameter/2/obj.xyzVxyz(:,4) - min_time)/binsize + 0.5);
-            bin_end_each_particle =int16((obj.arrival_time + obj.params.FLY_detection_laser_diameter/2/obj.xyzVxyz(:,4) - min_time)/binsize + 0.5);
+%             obj.params.FLY_detection_laser_diameter = 1.4e-3;
+            indices_detected = abs(xyzVxyz(:,2)) < obj.params.FLY_detection_laser_diameter/2 & abs(xyzVxyz(:,3)) < 2e-3;%1.3e-3;
+            arrival_time = obj.arrival_time(indices_detected);
+            xyzVxyz = xyzVxyz(indices_detected, :);
+%             figure;histogram(arrival_time);
+            bin_begin_each_particle = int16((arrival_time - obj.params.FLY_detection_laser_diameter/2./xyzVxyz(:,4) - min_time)/binsize + 0.5);
+            bin_end_each_particle =int16((arrival_time + obj.params.FLY_detection_laser_diameter/2./xyzVxyz(:,4) - min_time)/binsize + 0.5);
             
             time = min_time:binsize:max_time;
             for i = 1: length(bin_begin_each_particle)
                 tof_profile(bin_begin_each_particle(i):bin_end_each_particle(i)) = tof_profile(bin_begin_each_particle(i):bin_end_each_particle(i)) + 1;
             end
             
-%             disp(size(time));
-%             disp(size(tof_profile));
+            if obj.params.FLY_focusing_mode_bool
+                tof_save_path = './result/tof_FM_' + ...
+                    strrep( string(obj.params.FLY_voltage_on_electrodes), '.', 'p') + ...
+                    'kV_' + 'dec_' + string(obj.params.CALC_vel_synch_mol) ...
+                    + '_' + string(obj.params.FLY_target_velocity) + '.dat';
+            else
+                tof_save_path = './result/tof_NM_' + ...
+                    strrep( string(obj.params.FLY_voltage_on_electrodes), '.', 'p') + ...
+                    'kV_' + 'dec_' + string(obj.params.CALC_vel_synch_mol) ...
+                    + '_' + string(obj.params.FLY_target_velocity) + '.dat';
+            end
+            tof = [time(2:end)', tof_profile];
+%             save(tof_save_path, "tof");
+            fileID = fopen(tof_save_path, 'w');
+            fprintf(fileID, '%f\t%d\n', tof');
+            obj.TOF_profile = tof;
+            
             figure;
-            plot(time(1:end-1), tof_profile);
-            xlabel('arrival time (s)')
+            plot(time(1:end-1)*1e6, tof_profile);
+            xlabel('arrival time (us)')
             ylabel('signal (arb. u)')
         end
 
@@ -1405,7 +1457,6 @@ classdef InputParameters < handle
 
 
             for i=1:length(t_profile)
-
                 xyzVxyz_TOF = obj.xyzVxyz; % local copy not to modify class variable
  %               xyzVxyz_TOF(:, 1:3) = xyzVxyz_TOF(:, 1:3) + xyzVxyz_TOF(:,4:6)*t_steps_TOF; % let particles propagate 1 mu s after decc           
                 xyzVxyz_TOF(:, 1:3) = obj.xyzVxyz(:, 1:3) + obj.xyzVxyz(:,4:6)*t_profile(i); % let particles propagate 1 mu s after decc           
@@ -1583,8 +1634,18 @@ classdef InputParameters < handle
             xlim([obj.TOF_save(1,1)*1e6+obj.params.FLY_incoupling_time*1e6,obj.TOF_save(end,1)*1e6+obj.params.FLY_incoupling_time*1e6]);
         end
 
-        
+        function plot_phase_space_distribution(obj)
             
-
+            % Initial distribution at the source
+            figure()
+            scatter(obj.xyzVxyz_0(:, 1) - obj.xyzVxyz_0(1, 1), obj.xyzVxyz_0(:, 4), '.'); grid on;
+            title("Longitudinal phase space ditribution at source"); xlabel("x(m)"); ylabel("v_x(m/s)")
+            figure()
+            scatter(obj.xyzVxyz_0(:, 2), obj.xyzVxyz_0(:, 5), '.'); grid on;
+            title("Transverse phase space ditribution at source"); xlabel("y(m)"); ylabel("v_y(m/s)")
+            figure()
+            scatter(obj.xyzVxyz_0(:, 3), obj.xyzVxyz_0(:, 6), '.'); grid on;
+            title("Transverse phase space ditribution at source"); xlabel("z(m)"); ylabel("v_z(m/s)")
+        end
     end
 end
