@@ -27,7 +27,8 @@ classdef InputParameters < handle
         fortran_seq_bool % if false, ignore Fortran sequence (do not load it etc etc)
         always_generate_M_seq % force re-generation of M_seq regardless of whether it already exists
         electrode_sequences % variable to save the integer arrays containg the sequence for each of the electrode
-        
+        autom_find_final_vel % if true, automatically match the in.params.FLY_simulated_target_vel to in.params.FLY_target_velocity
+
         num_particles
         xyzVxyz_0                       % the vector of initial pos&vel, number_of_particles * 6
         xyzVxyz                         % the vector of computed pos&vel, number_of_particles * 6
@@ -56,6 +57,7 @@ classdef InputParameters < handle
                 options.Verbose             logical = false % default behaviour of verbose
                 options.FortranSeqBool      logical = false % default behaviour for Fortran sequences
                 options.AlwaysGenerateMSeq  logical = false % if true, always force new generation of M sequence
+                options.AutomFindFinalVelocity logical = false % if true, automatically match the in.params.FLY_simulated_target_vel to in.params.FLY_target_velocity
             end
             if nargin < 4
                  fprintf('Usage: InputParamters( voltage, focusing_mode_bool, V_synch_mol, V_target, options)\n(Options are: \t Phase\tVerbose\tFortranSeqBool\tAlwaysGenerateMSeq)\n')
@@ -72,7 +74,7 @@ classdef InputParameters < handle
             obj.verbose = options.Verbose;
             obj.fortran_seq_bool = options.FortranSeqBool;
             obj.always_generate_M_seq = options.AlwaysGenerateMSeq;
-
+            obj.autom_find_final_vel = options.AutomFindFinalVelocity;
             %% MANUAL DEFINITION OF ALL THE INPUT PARAMETRS
             % EVERYTHING MUST BE IN SI UNITS! 
             
@@ -131,8 +133,8 @@ classdef InputParameters < handle
                 fprintf('Matlab sequence already exists, I will just load it.\n')
                 obj.loadMatlabSequence(); % it loads all the M_something variables
             else 
-                fprintf('Matlab sequence not found. Generating a new one.\n')
-                obj.generateMatlabTimeSequence();
+                fprintf('Matlab sequence not found. Generating a new one.\n') % else, make a new one
+                obj.generateMatlabTimeSequence(); % (with or without automatic phase detection)
             end
         end
 
@@ -270,17 +272,141 @@ classdef InputParameters < handle
         % (decelerator) coordinate of the synchronous molecules, which can
         % be quite usefull later on in the full simulation
 
+        % added automatic phase detection called by boolean autom_find_final_vel
+
+       
         function [simulated_target_vel] = generateMatlabTimeSequence(obj)
             fprintf('Generating Matlab time sequence...');
 
-            % 111 pops out from?
+         
+            obj.numerical_int_for_time_seq() % do the integration
+            simulated_target_vel = obj.params.FLY_simulated_target_vel; 
+
+            if obj.autom_find_final_vel 
+                %% Automatic phase detection here
+                % hold on: we run over and over till happy and
+                % in.params.FLY_simulated_target_vel matches the 
+                % in.params.FLY_target_velocity with a precision of 0.1 m/s
+                % calls setPhase to set a new phase
+                % uses obj.params.CALC_phase_degrees as phase
+
+                disp('*** Starting automatic phase detection ***')
+                disp('Target velocity ' + string(obj.params.FLY_target_velocity) )
+                disp('Phase of ' + string(obj.params.CALC_phase_degrees) + ' gave ' + string(obj.params.FLY_simulated_target_vel) + 'm/s')
+                satisfied = false; % exit condition
+                
+                g_phase_interval = [obj.params.CALC_phase_degrees]; % store last guess(es)
+                g_sim_vel = [obj.params.FLY_simulated_target_vel]; % store all compute velocities 
+                
+                % first loop to find a correct starting interval INSIDE
+                % which out solution existis (extrapolation is delicate)
+                found_correct_starting_interval = false; % bool to get the guessing interval correct
+                i = 1; % brutal but effective, I increase the interval range every iteration
+                while ~found_correct_starting_interval
+                    % the function that makes the steps where found with
+                    % trial and error. They are slow but stiff. The atan is
+                    % necessary to reduce the step size and avoid the code
+                    % failing the simulation with a too high phase.
+                    % the +2 m/s is a shift in target velocity of the atan
+                    % the /200 factor smooths atan out to make it less
+                    % steep
+                    if g_sim_vel > obj.params.FLY_target_velocity % start velocity too high: guess higher phase
+                        disp('AHHHHH can fail at high phase, use a PHASE GUESS HIGHER THAN ' + string(g_phase_interval) )
+                        new_g_phase = (1 + 0.02 * atan((g_sim_vel-obj.params.FLY_target_velocity + 2)/200)) * g_phase_interval; %THIS ALWAYS FAILS FOR LOW TARGET VELOCITIES if the starting angle is too off!
+                    else
+                        new_g_phase = (1 - 0.1* atan((- g_sim_vel + (obj.params.FLY_target_velocity + 2))/20)) * g_phase_interval;
+                        if new_g_phase < 0
+                            disp('AAHHHHH Phase is negative, I set it to 1e-2')
+                            new_g_phase = 1e-2
+                        end
+                    end
+                    g_phase_interval = sort([new_g_phase, g_phase_interval])
+
+                    obj.setPhase(new_g_phase); % set new guess phase
+                    obj.numerical_int_for_time_seq() % run
+                    disp('New guess phase of ' + string(obj.params.CALC_phase_degrees) + ' gave ' + string(obj.params.FLY_simulated_target_vel) + 'm/s')
+                    
+                    g_phase_interval    
+                    g_sim_vel = [g_sim_vel, obj.params.FLY_simulated_target_vel] % append velocity                        
+                    
+                    if obj.params.FLY_target_velocity >= min(g_sim_vel ) && ...
+                            obj.params.FLY_target_velocity <= max(g_sim_vel )  % the range is good
+                        found_correct_starting_interval = true;
+                        disp('Correct range found')
+                    else % the range is not good
+                        if any( obj.params.FLY_target_velocity > g_sim_vel )
+                            g_phase_interval = min( g_phase_interval); % keep lower phase only
+                            g_sim_vel = max(g_sim_vel);
+                        else % keep bigger phase
+                            g_phase_interval = max(g_phase_interval);
+                            g_sim_vel = min(g_sim_vel);
+                        end
+                    end
+                    i = i + 1;
+                end
+
+
+                % loop to find the solution
+                while ~satisfied
+                    disp("Running optimizer")
+                    new_g_phase = min(g_phase_interval) + diff(g_phase_interval) * 0.5; % generate a new phase in between the previous two
+                    obj.setPhase(new_g_phase) % set new guess phase
+                    obj.numerical_int_for_time_seq() % run
+                    disp('New guess phase of ' + string(obj.params.CALC_phase_degrees) + ' gave ' + string(obj.params.FLY_simulated_target_vel) + 'm/s')
+                    
+                    % update the guessed phase interval
+                    if obj.params.FLY_simulated_target_vel > obj.params.FLY_target_velocity % keep [new_g_phase max(g_phase)]
+                        g_phase_interval = [new_g_phase, max(g_phase_interval)];
+                        g_sim_vel = [obj.params.FLY_simulated_target_vel, min(g_sim_vel)];
+                    else    % keep [min(g_phase, new_g_phase]
+                        g_phase_interval = [min(g_phase_interval), new_g_phase];   
+                        g_sim_vel = [max(g_sim_vel), obj.params.FLY_simulated_target_vel];
+                    end
+                    g_phase_interval = sort(g_phase_interval); % sort them by ascending order, they can easily be swapped
+                    
+                    g_sim_vel
+                    g_phase_interval
+
+                    % check exit condition 
+                    if abs(obj.params.FLY_simulated_target_vel - obj.params.FLY_target_velocity) < 0.05
+                        obj.params.FLY_simulated_target_vel
+                        obj.params.FLY_target_velocity
+                        disp("*** sequence found with precision below 0.1 m/s")
+                        obj.saveMatlabSequence();
+                        fprintf('\tFinal Matlab velocity is %d\n', obj.params.FLY_simulated_target_vel)
+                        satisfied = true;
+                    end
+                end
+
+
+
+            else  % we are done: save, exit, plot, print
+            obj.saveMatlabSequence(); % saves both .out and .m files for the sequence just created
+            % in the .out file we save M_time_vec and M_trigger_pattern
+            % in the .mat file we save all the files with M_'something'
+
+            if obj.verbose % we plot the synch molecule
+                obj.plotTimeSequence()
+            end
+
+            fprintf('\tFinal Matlab velocity is %d\n', obj.params.FLY_simulated_target_vel)
+%             I return the compute velocity, to be used if needed.
+%             for some reason I cannot return the class variable but I must
+%             declare a local one. Probably due to handle and class stuff.
+            end
+        end
+        
+        function numerical_int_for_time_seq(obj)
+            % Main code that does numverical itnegration is moved here and
+            % called above.
+            % This turned out to be necessary for automatic phase
+            % optimization
+            
             %changed ax norm again since not cut anymore
             obj.ax_norm_1d_interpl = griddedInterpolant( linspace(0, obj.params.PHYS_distance_stages, 111), obj.ax_norm(:,21,21),'linear','none'); %Here we make new a_x values in the center of the trap at the trap and at the stages?electrodes?           
             if obj.params.FLY_focusing_mode_bool
                 obj.ax_neg_1d_interpl = griddedInterpolant(linspace(0,obj.params.PHYS_distance_stages,111), obj.ax_neg(:,21,21),'linear','none');
             end
-            
-            
             function [value, isterminal, direction] = EventsFcn(t, x) % This event function stops the ode solver once the molecule arrives at detection point
                 value = x(1) < obj.params.PHYS_length_dec + obj.params.PHYS_exit_to_detection;
                 isterminal = 1; 
@@ -340,25 +466,13 @@ classdef InputParameters < handle
                 obj.M_trigger_pattern(end-1:end)= "0x0000";
             end
             fprintf("Precise final velocity of sequence is %s", num2str(obj.M_synch_velocity(end)))
-            obj.params.FLY_simulated_target_vel = round( obj.M_synch_velocity(end), 0);
+            obj.params.FLY_simulated_target_vel = round( obj.M_synch_velocity(end), 1);
+            fprintf(" rounded to %s \n", num2str(obj.params.FLY_simulated_target_vel))
             % stores in a quite useless but safe variable the effective final velocity
             % Will be used to create the filename
 
-            obj.saveMatlabSequence(); % saves both .out and .m files for the sequence just created
-            % in the .out file we save M_time_vec and M_trigger_pattern
-            % in the .mat file we save all the files with M_'something'
-
-            if obj.verbose % we plot the synch molecule
-                obj.plotTimeSequence()
-            end
-
-            fprintf('\tFinal Matlab velocity is %d\n', obj.params.FLY_simulated_target_vel)
-            simulated_target_vel = obj.params.FLY_simulated_target_vel; 
-%             I return the compute velocity, to be used if needed.
-%             for some reason I cannot return the class variable but I must
-%             declare a local one. Probably due to handle and class stuff.
         end
-        
+
         function dxdt = dxdt(obj, t, x)
             if obj.params.FLY_focusing_mode_bool 
                 if x(1) > obj.params.PHYS_length_dec -(obj.params.PHYS_distance_stages/2 - obj.params.CALC_phase_distance)
@@ -504,7 +618,7 @@ classdef InputParameters < handle
             obj.M_synch_velocity = M_synch_velocity;
             obj.M_synch_time = M_synch_time;
             obj.M_sequence_path = M_sequence_path;
-            obj.params.FLY_simulated_target_vel = round( obj.M_synch_velocity(end) );
+            obj.params.FLY_simulated_target_vel = round( obj.M_synch_velocity(end), 1);
             clearvars M_time_vec M_trigger_pattern M_stage_number ...
                 M_synch_position M_synch_velocity M_synch_time M_sequence_path % important to delete them            
             fprintf('\t\tdone\n')
@@ -966,8 +1080,10 @@ classdef InputParameters < handle
             obj.xyzVxyz_0 = [];
             while size(obj.xyzVxyz_0, 1) < obj.num_particles
                 trial_num_particles = obj.num_particles * 3;
-                xVx_0 = randn(trial_num_particles, 2)/sqrt(8*log(2)).* [obj.params.BEAM_long_pos_spread, obj.params.BEAM_long_vel_spread] + [-obj.params.PHYS_valve_to_dec, obj.params.BEAM_avg_velocity_beam]; %conversion factor to std from full width half max, below adjust normal dist. to represent particles %set v_x to avergae and set all particles to valve pos. (decc x=0)
-                rAVrB = rand(trial_num_particles, 4).*[obj.params.BEAM_radius_of_nozzle.^2, 2*pi, (obj.params.BEAM_trans_velocity_HWHM).^2, 2*pi]; % produce radom transverse positions and azimuthal angles, and then project to y and z axis
+                xVx_0 = randn(trial_num_particles, 2)/sqrt(8*log(2)).* [obj.params.BEAM_long_pos_spread, obj.params.BEAM_long_vel_spread] + [-obj.params.PHYS_valve_to_dec, obj.params.BEAM_avg_velocity_beam]; 
+                %conversion factor to std from full width half max, below adjust normal dist. to represent particles %set v_x to avergae and set all particles to valve pos. (decc x=0)
+                rAVrB = rand(trial_num_particles, 4).*[obj.params.BEAM_radius_of_nozzle.^2, 2*pi, (obj.params.BEAM_trans_velocity_HWHM).^2, 2*pi];
+                % produce radom transverse positions and azimuthal angles, and then project to y and z axis
                 yzVyz_0 = [sqrt(rAVrB(:,1)).* cos(rAVrB(:,2)), sqrt(rAVrB(:,1)).* sin(rAVrB(:,2)), sqrt(rAVrB(:,3)).* cos(rAVrB(:,4)), sqrt(rAVrB(:,3)).* sin(rAVrB(:,4))];
                 xyzVxyz_0 = [xVx_0(:,1),yzVyz_0(:,1), yzVyz_0(:,2), xVx_0(:,2),yzVyz_0(:,3), yzVyz_0(:,4)];
                 xyzVxyz_0 = xyzVxyz_0((xyzVxyz_0(:,2) + xyzVxyz_0(:,5).*(-obj.params.PHYS_skimmer_to_dec - xyzVxyz_0(:,1))./xyzVxyz_0(:,4)).^2 + (xyzVxyz_0(:,3) + xyzVxyz_0(:,6).*(-obj.params.PHYS_skimmer_to_dec - xyzVxyz_0(:,1))./xyzVxyz_0(:,4)).^2 <= obj.params.PHYS_skimmer_radius^2, :);
