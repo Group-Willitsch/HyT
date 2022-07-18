@@ -134,6 +134,7 @@ classdef InputParameters < handle
                 obj.loadMatlabSequence(); % it loads all the M_something variables
             else 
                 fprintf('Matlab sequence not found. Generating a new one.\n') % else, make a new one
+                fprintf('***** YOU FORGOT TO UNZIP ALL THE FILES FROM THE REPO *****\n ***** they already contain all the default sequences you may ever want *****')
                 obj.generateMatlabTimeSequence(); % (with or without automatic phase detection)
             end
         end
@@ -274,19 +275,18 @@ classdef InputParameters < handle
 
         % added automatic phase detection called by boolean autom_find_final_vel
 
-       
-        function [simulated_target_vel] = generateMatlabTimeSequence(obj)
+       function [simulated_target_vel] = generateMatlabTimeSequence(obj)
             fprintf('Generating Matlab time sequence...');
 
          
             obj.numerical_int_for_time_seq() % do the integration
             simulated_target_vel = obj.params.FLY_simulated_target_vel; 
 
+            %% Automatic phase detection here
             if obj.autom_find_final_vel 
-                %% Automatic phase detection here
                 % hold on: we run over and over till happy and
                 % in.params.FLY_simulated_target_vel matches the 
-                % in.params.FLY_target_velocity with a precision of 0.1 m/s
+                % in.params.FLY_target_velocity with a precision of < 0.05 m/s
                 % calls setPhase to set a new phase
                 % uses obj.params.CALC_phase_degrees as phase
 
@@ -377,7 +377,7 @@ classdef InputParameters < handle
                         satisfied = true;
                     end
                 end
-
+            % end of automatic phase detection algorithm
 
 
             else  % we are done: save, exit, plot, print
